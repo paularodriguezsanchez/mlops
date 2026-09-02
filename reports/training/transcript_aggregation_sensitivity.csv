@@ -1,0 +1,5 @@
+campo,n_multi_transcrito,diff_media_absoluta,diff_maxima,relativa_a_std_del_feature,prevalencia_multi_transcrito_pct
+sift_score,790,0.0333,0.6667,0.1058,9.23
+polyphen_score,609,0.0393,0.664,0.088,7.16
+revel_score,841,0.0,0.0,0.0,9.76
+alphamissense_score,877,0.0233,0.3234,0.0608,10.25

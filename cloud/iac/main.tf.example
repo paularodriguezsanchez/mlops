@@ -1,0 +1,80 @@
+# Fase II (diseño de referencia, NO ejecutado ni validado con `terraform plan/apply`
+# — Opción A, ver docs/FASE_II_DISENO_GCP.md). Sirve para documentar qué recursos
+# harían falta y con qué configuración, no como IaC lista para producción.
+# Extensión .example deliberada: evita que un `terraform init` accidental sobre
+# este directorio intente aplicar algo sin que el equipo lo revise primero.
+
+terraform {
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 5.0"
+    }
+  }
+}
+
+variable "project_id" {
+  description = "Proyecto GCP (BigQuery Sandbox / free tier, sin facturación obligatoria para BigQuery)"
+  type        = string
+}
+
+variable "region" {
+  default = "europe-west1"
+}
+
+# --- Capa de datos (BigQuery Sandbox, sin tarjeta) ---
+resource "google_bigquery_dataset" "raw" {
+  dataset_id = "tfm_variantes_raw"
+  project    = var.project_id
+  location   = "EU"
+}
+
+resource "google_bigquery_dataset" "silver" {
+  dataset_id = "tfm_variantes_silver"
+  project    = var.project_id
+  location   = "EU"
+}
+
+resource "google_bigquery_dataset" "gold" {
+  dataset_id = "tfm_variantes_gold"
+  project    = var.project_id
+  location   = "EU"
+}
+
+# --- Cloud Storage: RAW inmutable (equivalente a data/raw/ + remoto DVC) ---
+resource "google_storage_bucket" "raw" {
+  name          = "${var.project_id}-tfm-raw"
+  project       = var.project_id
+  location      = var.region
+  force_destroy = false
+  versioning { enabled = true }
+}
+
+# --- Servicio de inferencia (Cloud Run, escala a cero — requiere facturación) ---
+resource "google_cloud_run_v2_service" "serve" {
+  name     = "tfm-serve"
+  project  = var.project_id
+  location = var.region
+
+  template {
+    scaling {
+      min_instance_count = 0   # coste cero fuera de uso real, no negociable
+      max_instance_count = 2
+    }
+    containers {
+      image = "europe-west1-docker.pkg.dev/${var.project_id}/tfm-repo/serve:latest"
+      env {
+        name  = "MLFLOW_TRACKING_URI"
+        value = "" # URI del MLflow en Cloud Run / Cloud SQL, a definir en despliegue real
+      }
+    }
+  }
+}
+
+resource "google_cloud_run_v2_service_iam_member" "serve_invoker" {
+  name     = google_cloud_run_v2_service.serve.name
+  project  = var.project_id
+  location = var.region
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:<CUENTA_DE_SERVICIO>" # nunca "allUsers": ver
+}

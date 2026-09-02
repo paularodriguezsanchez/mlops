@@ -1,0 +1,15 @@
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+# S101 (assert): pytest usa `assert` como mecanismo normal de aserción, no un
+# `assert` de producción que pueda desactivarse con -O.
+"tests/*" = ["S101"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

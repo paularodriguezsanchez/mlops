@@ -1,0 +1,10 @@
+feature,type,ks_stat,p_value,psi,drift
+sift_score,numeric,0.0056,0.999996,0.0004,False
+polyphen_score,numeric,0.0133,0.761925,0.0009,False
+revel_score,numeric,0.0184,0.339481,0.0023,False
+alphamissense_score,numeric,0.0117,0.857191,0.0014,False
+cadd_phred,numeric,0.0142,0.60093,0.0017,False
+gerp_rs,numeric,0.0106,0.89917,0.0012,False
+phylop,numeric,0.0132,0.686382,0.001,False
+gnomad_af,numeric,0.0234,0.062656,0.0032,False
+consequence,categorical,,,0.0009,False

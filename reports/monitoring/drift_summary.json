@@ -1,0 +1,37 @@
+{
+  "reference_release": "2023-12",
+  "current_release": "2025-06",
+  "covariate_drift": {
+    "n_features": 9,
+    "n_drifted": 0,
+    "share_drifted": 0.0,
+    "threshold": 0.15,
+    "alert": false,
+    "drifted_features": []
+  },
+  "concept_drift": {
+    "n_shared": 7997,
+    "n_reclassified": 55,
+    "n_new_variants": 4000,
+    "model_accuracy_on_reclassified": 0.9636,
+    "interpretation": "El modelo se entrenó cuando estas variantes eran VUS (excluidas). Su acierto frente a la nueva verdad clínica mide el impacto del concept drift; por debajo de lo esperado justifica reentrenar.",
+    "share_reclassified": 0.0069,
+    "reclassified_threshold": 0.02,
+    "alert": false
+  },
+  "stress_test": {
+    "n_features": 9,
+    "n_drifted": 3,
+    "share_drifted": 0.3333,
+    "threshold": 0.15,
+    "alert": true,
+    "drifted_features": [
+      "cadd_phred",
+      "gerp_rs",
+      "gnomad_af"
+    ],
+    "description": "Perturbación controlada (+8 CADD, AF×0.1, +GERP) para verificar que la alerta por umbral se dispara."
+  },
+  "evidently_report": "evidently_drift.html",
+  "overall_alert": false
+}

@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Datos (grandes / no versionar en git; se gestionan con DVC)
+data/raw/*
+data/interim/*
+data/processed/*
+!data/**/.gitkeep
+*.vcf
+*.vcf.gz
+*.tsv.gz
+*.parquet
+
+# MLflow (artefactos y tracking local)
+mlruns/
+mlartifacts/
+*.db
+*.sqlite
+
+# DVC
+/data/**/*.dvc.lock
+
+# Modelos y outputs
+models/
+outputs/
+*.pkl
+*.joblib
+# Informes HTML (regenerables con make monitor; el de Evidently pesa varios MB)
+reports/*.html
+reports/**/*.html
+
+# Credenciales GCP (NUNCA versionar)
+*.json.key
+gcp-key*.json
+service-account*.json
+.env
+.env.*
+
+# Sistema
+.DS_Store
+Thumbs.db
+.ipynb_checkpoints/

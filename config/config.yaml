@@ -1,0 +1,106 @@
+# Configuración central del proyecto. Versionada: NO hardcodear en scripts.
+project:
+  name: tfm-mlops-variantes
+  random_seed: 42
+  assembly: GRCh38
+
+data:
+  raw_dir: data/raw
+  interim_dir: data/interim
+  processed_dir: data/processed
+  # Release de ClinVar usada para ENTRENAR (drift temporal: train=antigua, test=nueva)
+  clinvar_train_release: "2023-12"
+  clinvar_test_release: "2025-06"
+  # Acotar volumen en Fase I (local). Vacío = todos.
+  chromosomes_subset: ["1", "2", "3"]
+  # Acota el volumen ANTES de anotar (capa SILVER), solo relevante con ClinVar real:
+  # chr 1-3 real son ~500k-760k variantes, muy por encima de lo manejable en
+  # local (§3 del plan, riesgo R2). Con `annotation_source: multi_source` esto
+  # es además crítico para el COSTE de red (cada variante = 1 consulta a
+  # myvariant.info, batched): se aplica antes de anotar, no después, para no
+  # consultar variantes que se descartarían igualmente (revisión interna del proyecto). Vacío/null = sin límite (caso
+  # sintético, ya generado a escala pequeña). Muestreo determinista (semilla).
+  max_variants_per_release: 8000
+  # A partir de la 2a release (test), cuántas variantes GENUINAMENTE NUEVAS
+  # (no presentes en la cohorte muestreada de la 1a release) se añaden además
+  # de la cohorte retenida. Sin esto, con ClinVar real (acumulativo: casi toda
+  # variante de train sigue apareciendo en test) la cohorte retenida agota
+  # ella sola el cupo de `max_variants_per_release`, dejando un holdout "no
+  # visto" casi vacío (bug detectado 2026-08-02: 2, 1%, 75 variantes, tras
+  # arreglar la continuidad de cohorte para el modelo de reclasificación sin este segundo parámetro).
+  # Mismo patrón que `synthetic.n_new_in_test` (ADR 005), aplicado a datos reales.
+  max_new_variants_per_release: 4000
+  # Release PROSPECTIVA para validación temporal real del modelo de reclasificación (revisión posterior del proyecto
+  # independiente, un hallazgo de esa revisión): train sigue siendo 2023-12->2025-06
+  # (sin cambios), pero además se evalúa la predicción resultante contra una
+  # TERCERA release, publicada después de fijar ese par y nunca usada para
+  # entrenar ni ajustar nada -- la única forma de que "predecir una
+  # reclasificación futura" deje de ser una afirmación no demostrada y pase a
+  # ser un experimento genuinamente prospectivo (release B->C, no solo A->B).
+  clinvar_prospective_release: "2026-08"
+  # Fuente de features de anotación (ADR 007 / B5):
+  # multi_source -> myvariant.info real (gnomAD+CADD+SIFT+PolyPhen+GERP+phyloP+REVEL+AlphaMissense),
+  # sin dbNSFP. Requiere red. Es la fuente de los resultados oficiales
+  # del proyecto (memoria, Model Cards, informes) — ver ADR 005 (revisado).
+  # synthetic -> subset dbNSFP-like generado (ADR 005, offline, determinista). Reservado
+  # EXCLUSIVAMENTE a tests/CI (se fija explícitamente en cada test que lo
+  # necesita, nunca por depender de este valor por defecto): no debe usarse
+  # para generar ningún resultado citable.
+  annotation_source: multi_source
+
+# Fuentes de datos públicas. En un entorno con red abierta, download.py las descarga.
+# En entornos sin acceso (p. ej. este sandbox con allowlist), se usa el generador
+# offline determinista (ver ADR 005). Nada de esto se hardcodea en los scripts.
+sources:
+  clinvar:
+    # Releases fechadas de ClinVar (VCF, GRCh38). Ver ADR 002.
+    base_url: "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/archive_2.0"
+    # {release} → AAAA-MM; el fichero real es clinvar_AAAAMMDD.vcf.gz
+    releases:
+      "2023-12": "2023/clinvar_20231203.vcf.gz"
+      "2025-06": "2025/clinvar_20250601.vcf.gz"
+      "2026-08": "2026/clinvar_20260808.vcf.gz"
+  dbnsfp:
+    # Subconjunto por cromosoma (dbNSFP se distribuye por cromosoma).
+    academic_note: "dbNSFP requiere descarga académica; en Fase I se usa un subconjunto chr 1 a 3."
+    version: "4.9a"
+
+# Parámetros del generador offline determinista (fallback sin red). Ver ADR 005.
+synthetic:
+  enabled_when_offline: true
+  seed: 42
+  n_variants_train: 6000 # variantes en la release "antigua" (2023-12)
+  n_new_in_test: 1200 # variantes nuevas añadidas en la release "nueva" (2025-06)
+  frac_reclassified: 0.06 # fracción de VUS del train reclasificadas en test (drift real)
+
+target:
+  # Binarización de la significancia clínica de ClinVar.
+  positive_labels: ["Pathogenic", "Likely_pathogenic", "Pathogenic/Likely_pathogenic"]
+  negative_labels: ["Benign", "Likely_benign", "Benign/Likely_benign"]
+  # VUS estricta (ClinVar): la única categoría reservada como población de
+  # inferencia para el modelo de reclasificación y la priorización.
+  # Ver `src/features/reclassification.py::VUS_LABEL`.
+  vus_labels: ["Uncertain_significance"]
+  # Informativo, no operacional: todo `clnsig` que no sea positivo, negativo ni
+  # VUS se excluye automáticamente (no se hardcodea una lista de valores, porque
+  # ClinVar ha cambiado el vocabulario de esta columna entre releases -- p. ej.
+  # "Conflicting_interpretations_of_pathogenicity" en 2023-12 pasó a
+  # "Conflicting_classifications_of_pathogenicity" en 2025-06). Categorías
+  # excluidas observadas en los datos reales del proyecto: clasificaciones
+  # conflictivas (cualquier vocabulario), not_provided, other, drug_response,
+  # protective/risk_factor, Likely_risk_allele, association,
+  # no_classification_for_the_single_variant. Ver docs/datasheet.md.
+  exclude_labels_example: ["Conflicting_interpretations_of_pathogenicity", "not_provided"]
+
+mlflow:
+  tracking_uri: http://localhost:5000
+  experiment_name: variant_pathogenicity
+  registered_model_name: variant_pathogenicity_clf
+  # Segundo modelo (núcleo del proyecto ADR 007): potencial de reclasificación de VUS.
+  reclass_experiment_name: vus_reclassification_potential
+  reclass_registered_model_name: vus_reclassification_clf
+  # Objetivo de ranking (núcleo del proyecto ADR 007): LightGBM lambdarank.
+  ranking_experiment_name: vus_ranking
+
+monitor:
+  drift_threshold: 0.15 # umbral de proporción de columnas con drift para alertar

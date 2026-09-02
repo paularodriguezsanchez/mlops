@@ -1,0 +1,222 @@
+[
+  {
+    "input": {
+      "chrom": "1",
+      "pos": 63402252,
+      "ref": "A",
+      "alt": "G"
+    },
+    "clnsig_real": "Likely_pathogenic",
+    "output": {
+      "variant": {
+        "chrom": "1",
+        "pos": 63402252,
+        "ref": "A",
+        "alt": "G"
+      },
+      "annotated": true,
+      "gene": "ALG6",
+      "consequence": "SO:0001574|splice_acceptor_variant",
+      "prediction": "Patogénica",
+      "probability_pathogenic": 0.9757
+    }
+  },
+  {
+    "input": {
+      "chrom": "1",
+      "pos": 173833410,
+      "ref": "T",
+      "alt": "C"
+    },
+    "clnsig_real": "Likely_pathogenic",
+    "output": {
+      "variant": {
+        "chrom": "1",
+        "pos": 173833410,
+        "ref": "T",
+        "alt": "C"
+      },
+      "annotated": true,
+      "gene": "DARS2",
+      "consequence": "SO:0001583|missense_variant",
+      "prediction": "Patogénica",
+      "probability_pathogenic": 0.992
+    }
+  },
+  {
+    "input": {
+      "chrom": "3",
+      "pos": 11332986,
+      "ref": "A",
+      "alt": "G"
+    },
+    "clnsig_real": "Pathogenic",
+    "output": {
+      "variant": {
+        "chrom": "3",
+        "pos": 11332986,
+        "ref": "A",
+        "alt": "G"
+      },
+      "annotated": true,
+      "gene": "ATG7",
+      "consequence": "SO:0001583|missense_variant",
+      "prediction": "Benigna",
+      "probability_pathogenic": 0.1047
+    }
+  },
+  {
+    "input": {
+      "chrom": "2",
+      "pos": 54618178,
+      "ref": "C",
+      "alt": "G"
+    },
+    "clnsig_real": "Likely_pathogenic",
+    "output": {
+      "variant": {
+        "chrom": "2",
+        "pos": 54618178,
+        "ref": "C",
+        "alt": "G"
+      },
+      "annotated": true,
+      "gene": "SPTBN1",
+      "consequence": "SO:0001583|missense_variant",
+      "prediction": "Patogénica",
+      "probability_pathogenic": 0.9873
+    }
+  },
+  {
+    "input": {
+      "chrom": "2",
+      "pos": 227293255,
+      "ref": "G",
+      "alt": "A"
+    },
+    "clnsig_real": "Likely_pathogenic",
+    "output": {
+      "variant": {
+        "chrom": "2",
+        "pos": 227293255,
+        "ref": "G",
+        "alt": "A"
+      },
+      "annotated": true,
+      "gene": "COL4A3",
+      "consequence": "SO:0001583|missense_variant",
+      "prediction": "Patogénica",
+      "probability_pathogenic": 0.9922
+    }
+  },
+  {
+    "input": {
+      "chrom": "2",
+      "pos": 203870699,
+      "ref": "C",
+      "alt": "A"
+    },
+    "clnsig_real": "Likely_benign",
+    "output": {
+      "variant": {
+        "chrom": "2",
+        "pos": 203870699,
+        "ref": "C",
+        "alt": "A"
+      },
+      "annotated": true,
+      "gene": "CTLA4",
+      "consequence": "SO:0001819|synonymous_variant",
+      "prediction": "Benigna",
+      "probability_pathogenic": 0.0085
+    }
+  },
+  {
+    "input": {
+      "chrom": "3",
+      "pos": 52372038,
+      "ref": "C",
+      "alt": "T"
+    },
+    "clnsig_real": "Likely_benign",
+    "output": {
+      "variant": {
+        "chrom": "3",
+        "pos": 52372038,
+        "ref": "C",
+        "alt": "T"
+      },
+      "annotated": true,
+      "gene": "DNAH1",
+      "consequence": "SO:0001819|synonymous_variant",
+      "prediction": "Benigna",
+      "probability_pathogenic": 0.0003
+    }
+  },
+  {
+    "input": {
+      "chrom": "3",
+      "pos": 129034216,
+      "ref": "G",
+      "alt": "A"
+    },
+    "clnsig_real": "Likely_benign",
+    "output": {
+      "variant": {
+        "chrom": "3",
+        "pos": 129034216,
+        "ref": "G",
+        "alt": "A"
+      },
+      "annotated": true,
+      "gene": "EFCC1",
+      "consequence": "SO:0001583|missense_variant",
+      "prediction": "Benigna",
+      "probability_pathogenic": 0.005
+    }
+  },
+  {
+    "input": {
+      "chrom": "3",
+      "pos": 193363248,
+      "ref": "C",
+      "alt": "T"
+    },
+    "clnsig_real": "Benign",
+    "output": {
+      "variant": {
+        "chrom": "3",
+        "pos": 193363248,
+        "ref": "C",
+        "alt": "T"
+      },
+      "annotated": true,
+      "gene": "ATP13A5",
+      "consequence": "SO:0001819|synonymous_variant",
+      "prediction": "Benigna",
+      "probability_pathogenic": 0.0
+    }
+  },
+  {
+    "input": {
+      "chrom": "2",
+      "pos": 135130628,
+      "ref": "A",
+      "alt": "G"
+    },
+    "clnsig_real": "Likely_benign",
+    "output": {
+      "variant": {
+        "chrom": "2",
+        "pos": 135130628,
+        "ref": "A",
+        "alt": "G"
+      },
+      "annotated": true,
+      "gene": "RAB3GAP1",
+      "consequence": "SO:0001819|synonymous_variant",
+      "prediction": "Benigna",
+      "probability_pathogenic": 0.0002
+    }
+  }
+]
