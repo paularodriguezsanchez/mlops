@@ -109,7 +109,7 @@ def test_run_prospective_evalua_sin_reentrenar(tmp_path, monkeypatch):
     assert (tmp_path / "models" / "reclassification_model" / "prospective_metrics.json").exists()
     card = (tmp_path / "docs" / "MODEL_CARD_RECLASSIFICATION_PROSPECTIVE.md").read_text(
         encoding="utf-8")
-    assert "PROSPECTIVA" in card
+    assert "prospectiva" in card
 
 
 def test_run_prospective_sin_modelo_entrenado_falla_explicito(tmp_path, monkeypatch):

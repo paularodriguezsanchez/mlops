@@ -1,21 +1,14 @@
-"""Comparativa head-to-head: modelo ensemble frente a predictores in silico solos.
+"""Comparativa directa del modelo frente a cada predictor in silico en solitario.
 
-Revisión posterior del proyecto: la memoria afirmaba que el
-clasificador de patogenicidad era "competitivo con los predictores in silico
-de referencia" sin ninguna comparación directa en el mismo conjunto de
-evaluación -- CADD, REVEL y AlphaMissense son FEATURES del propio modelo, no
-baselines evaluados por separado. Este módulo calcula, sobre exactamente el
-mismo holdout no visto que usa el modelo de patogenicidad, el PR-AUC/ROC-AUC de cada score
-individual
-usado directamente como probabilidad, y compara cada uno con el modelo
-ensemble mediante un IC bootstrap de la diferencia.
+CADD, REVEL y AlphaMissense son features del propio modelo, así que afirmar que lo
+supera exige evaluarlos por separado sobre el mismo conjunto. Este módulo calcula,
+sobre el mismo holdout no visto, el PR AUC y el ROC AUC de cada score usado
+directamente como probabilidad, y compara cada uno con el modelo mediante un IC
+bootstrap pareado de la diferencia.
 
-Cobertura: cada score solo está definido para el subconjunto de variantes
-donde el predictor aplica (p. ej. REVEL solo en missense); se reporta el
-denominador exacto de cada comparación, no solo el holdout completo
-(revisión posterior del proyecto).
+Cada score solo está definido donde el predictor aplica -REVEL solo en missense-,
+así que se reporta el denominador exacto de cada comparación.
 
-Uso:
     python -m src.evaluate.compare_predictors
 """
 from __future__ import annotations

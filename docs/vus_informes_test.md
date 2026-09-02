@@ -1,14 +1,12 @@
 # Informes de VUS priorizadas: release test
 
-Generados por plantilla (no por un LLM libre) a partir de los modelos y la
-explicabilidad ya construidos: probabilidad de patogenicidad
-(`src/serve/predictor.py`), probabilidad de reclasificación próxima
-(`src, train, train_reclass.py`) y evidencia SHAP traducida a lenguaje tipo
-ACMG/AMP (`src, evaluate, acmg_evidence.py`). **No es una clasificación
-ACMG certificada** ni sustituye la curación clínica experta. Las variantes se ordenan por el score del modelo de ranking dedicado (LightGBM `lambdarank`) — ver `src/serve/prioritize_vus.py`.
+Generados por plantilla, no por un modelo de lenguaje libre, a partir de la
+probabilidad de patogenicidad (`src/serve/predictor.py`), la de reclasificación
+próxima (`src/train/train_reclass.py`) y la evidencia SHAP traducida a códigos
+ACMG-símiles (`src/evaluate/acmg_evidence.py`). No es una clasificación ACMG
+certificada ni sustituye la curación clínica experta. Ordenadas por el score del modelo de ranking (LightGBM `lambdarank`), ver `src/serve/prioritize_vus.py`.
 
-6042 VUS reservadas en total en esta release. Informes de las
-10 priorizadas primero:
+6042 VUS reservadas en esta release. Informes de las 10 primeras:
 
 ### 2:152718816 G>A (ARL6IP6)
 

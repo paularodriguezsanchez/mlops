@@ -1,4 +1,4 @@
-"""Test de la sensibilidad de agregación por transcrito (revisión posterior del proyecto)."""
+"""Sensibilidad de la agregación por transcrito."""
 from __future__ import annotations
 
 from src.evaluate import transcript_aggregation_sensitivity as tas

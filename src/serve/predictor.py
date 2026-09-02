@@ -1,8 +1,8 @@
-"""Predictor: variante → anotación → predicción de patogenicidad.
+"""Inferencia pura: variante, anotación y predicción de patogenicidad.
 
-Carga el mejor modelo (pipeline autocontenido guardado en `models/best_model`)
-y lo combina con el anotador. Es la lógica pura reutilizada por el servicio REST
-y por los tests (sin necesidad de levantar el servidor).
+Combina el pipeline autocontenido de `models/best_model` con el almacén de
+anotación. Lo reutilizan el servicio REST, la priorización y los tests, sin
+necesidad de levantar el servidor.
 """
 from __future__ import annotations
 

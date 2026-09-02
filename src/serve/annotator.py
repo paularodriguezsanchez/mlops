@@ -1,13 +1,11 @@
-"""Anotador de variantes para el servicio de inferencia.
+"""Almacén de anotación del servicio de inferencia.
 
-En producción, anotar una variante nueva implica ejecutar VEP (consecuencia
-funcional) + dbNSFP/gnomAD (scores). En la Fase I local se reutiliza la capa
-SILVER ya anotada como **almacén de anotación**: dada una variante
-`(chrom, pos, ref, alt)` devuelve sus features de entrada al modelo.
+En producción, anotar una variante nueva implicaría ejecutar VEP y consultar las
+fuentes de scores. En local reutilizo la capa SILVER ya anotada como índice: dada
+una clave de variante, devuelve sus features.
 
-Limitación documentada: solo resuelve variantes presentes en el almacén; una
-variante desconocida devolvería "no anotable" (en producción se llamaría a VEP).
-NO expone la etiqueta clínica (`clnsig`): eso es el target, no una feature.
+Limitación: solo resuelve variantes presentes en el almacén; una desconocida se
+marca como no anotable. Nunca expone `clnsig`, que es el target, no una feature.
 """
 from __future__ import annotations
 
@@ -57,9 +55,9 @@ def get_annotator() -> VariantAnnotator:
 
 def sample_documented_variants(n_per_class: int = 5, release: str | None = None,
                                seed: int | None = None) -> pd.DataFrame:
-    """Selecciona variantes etiquetadas (mitad patogénicas / mitad benignas) para
-    documentar el servicio (OE4). Prioriza variantes NO vistas en entrenamiento
-    (evaluación honesta). Incluye clnsig real solo para el informe."""
+    """Variantes etiquetadas, mitad patogénicas y mitad benignas, para documentar el
+    servicio. Prioriza las no vistas en entrenamiento; `clnsig` viaja solo para el
+    informe, nunca al modelo."""
     from src.config import get_seed, processed_dir
     cfg = load_config()
     seed = get_seed() if seed is None else seed

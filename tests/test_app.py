@@ -86,11 +86,11 @@ def test_dashboard_registrado_en_la_app(client):
     assert resp.status_code == 200
 
 
-# --- Autenticación opcional por API key (revisión interna del proyecto) ---
+# --- Autenticación opcional por API key ---
 
 
 def test_sin_api_key_configurada_no_exige_autenticacion(client, monkeypatch):
-    """Comportamiento por defecto (TFM_API_KEY no definida): sin cambios, Fase I local."""
+    """Sin TFM_API_KEY definida, el servicio no exige autenticación."""
     monkeypatch.setattr(app_mod, "_API_KEY", None)
     resp = client.post("/predict", json={"chrom": "1", "pos": 100, "ref": "A", "alt": "G"})
     assert resp.status_code == 200

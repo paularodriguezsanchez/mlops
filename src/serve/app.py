@@ -1,23 +1,15 @@
-"""Servicio REST de inferencia de patogenicidad [OE4].
+"""Servicio REST de inferencia de patogenicidad.
 
-Endpoints:
-  GET /health → estado del servicio y del almacén de anotación (sin auth,
-                             uso estándar para probes de liveness/readiness).
-  POST /predict → {"chrom","pos","ref","alt"} → anotación + predicción.
-  GET /dashboard[/<split>] → exploración interactiva de VUS priorizadas.
+  GET  /health              estado del servicio y del almacén de anotación.
+  POST /predict             {chrom, pos, ref, alt} -> anotación y predicción.
+  GET  /dashboard[/<split>] exploración interactiva de las VUS priorizadas.
 
-Autenticación (revisión interna del proyecto): opcional vía la variable de entorno
-`TFM_API_KEY`. Si está definida, `/predict` y `/dashboard*` exigen la cabecera
-`X-API-Key` con ese valor (401 si falta o no coincide); `/health` queda siempre
-abierto. Si NO está definida (por defecto en Fase I local), el servicio sigue
-funcionando sin autenticación, como hasta ahora, avisando una vez al arrancar —
-mismo patrón de degradación explícita que el resto del proyecto (ver ADR 005).
-Antes de exponer el servicio en Fase II (Cloud Run), definir `TFM_API_KEY` es
-obligatorio.
+La autenticación es opcional: si `TFM_API_KEY` está definida, `/predict` y
+`/dashboard` exigen la cabecera `X-API-Key`; `/health` queda siempre abierta, uso
+estándar para sondas de disponibilidad. Sin esa variable el servicio funciona sin
+autenticación y avisa al arrancar, aceptable en local pero no antes de exponerlo.
 
-Arranque local:
-    python -m src.serve.app # servidor de desarrollo en:8000
-    # o vía Docker / gunicorn en producción (Cloud Run en Fase II).
+    python -m src.serve.app   # servidor de desarrollo; en Docker corre con gunicorn
 """
 from __future__ import annotations
 
@@ -32,8 +24,8 @@ from src.serve.predictor import get_predictor
 
 app = Flask(__name__)
 app.register_blueprint(dashboard_bp)
-# 1 MB: generoso para el payload JSON diminuto que espera este servicio;
-# corta de raíz cuerpos de petición desproporcionados (revisión interna del proyecto).
+# 1 MB, holgado para el JSON diminuto que espera el servicio: corta cuerpos de
+# petición desproporcionados.
 app.config["MAX_CONTENT_LENGTH"] = 1_000_000
 
 _REQUIRED = ("chrom", "pos", "ref", "alt")
@@ -42,7 +34,7 @@ _PROTECTED_PREFIXES = ("/predict", "/dashboard")
 
 if not _API_KEY:
     print("[aviso] TFM_API_KEY no definida: /predict y /dashboard quedan sin "
-          "autenticación (aceptable en Fase I local; obligatorio antes de Fase II).",
+          "autenticación; obligatorio definirla antes de exponer el servicio.",
           file=sys.stderr)
 
 
@@ -79,11 +71,9 @@ def predict():
 
 
 def main():
-    # 127.0.0.1 por defecto (revisión interna del proyecto): evita exponer el servidor de
-    # desarrollo Flask a toda la LAN al ejecutarlo directamente en el host. La
-    # ruta que sí debe ser accesible desde fuera es gunicorn dentro de Docker
-    # (`compose.yaml`, servicio `serve`), que no pasa por esta función y ya usa
-    # 0.0.0.0 explícitamente. Override para casos que sí lo necesiten.
+    # 127.0.0.1 por defecto: no expone el servidor de desarrollo a toda la LAN. Lo
+    # que sí debe ser accesible desde fuera es gunicorn dentro de Docker, que no pasa
+    # por aquí y ya escucha en 0.0.0.0.
     host = os.environ.get("TFM_SERVE_HOST", "127.0.0.1")
     app.run(host=host, port=8000)
 

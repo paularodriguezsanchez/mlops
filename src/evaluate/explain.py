@@ -1,18 +1,14 @@
-"""Explicabilidad del modelo mejor mediante SHAP (C4, P1).
+"""Explicabilidad SHAP del modelo seleccionado.
 
-Complementa la importancia por permutación (`src/train/train.py`) con SHAP:
-valores por instancia basados en teoría de juegos (Shapley values), no solo
-un ranking global por barrido de una feature.
+Complementa la importancia por permutación con valores por instancia, que dan
+dirección y magnitud además de un ranking global.
 
-Se explica el Pipeline COMPLETO (preprocesado + clasificador) como caja negra
-sobre las columnas de ENTRADA (mismo criterio que la importancia por
-permutación), para que ambos análisis sean directamente comparables y
-legibles en la memoria sin exponer las columnas expandidas por one-hot.
+Se explica el pipeline completo como caja negra sobre las columnas de entrada, no
+sobre las expandidas por one-hot, para que ambos análisis sean comparables.
 
-Nota técnica: el masker tabular de SHAP compara valores con `np.isclose`,
-que no admite texto. Como `consequence` es categórica, se codifica a enteros
-antes de invocar SHAP y se decodifica de vuelta a texto justo antes de cada
-llamada real al pipeline (que sí espera la categoría como string).
+El masker tabular de SHAP compara con `np.isclose`, que no admite texto: la columna
+categórica se codifica a enteros antes de invocarlo y se decodifica justo antes de
+cada llamada real al pipeline.
 """
 from __future__ import annotations
 
@@ -29,23 +25,18 @@ from sklearn.pipeline import Pipeline
 
 from src.features.preprocess import CATEGORICAL_FEATURES
 
-# Acotan el coste: SHAP, agnóstico al modelo, evalúa el pipeline muchas veces por
-# instancia explicada. Suficientes para un ranking e informe estables.
+# Acotan el coste: SHAP agnóstico al modelo evalúa el pipeline muchas veces por
+# instancia. Suficiente para un ranking estable.
 _MAX_BACKGROUND = 50
 _MAX_EXPLAIN = 200
 
 
 def _category_maps(*frames: pd.DataFrame) -> dict[str, list]:
-    """Categorías únicas por columna, ordenadas, EXCLUYENDO nulos.
+    """Categorías únicas por columna, ordenadas, excluyendo nulos.
 
-    Con ClinVar real (a diferencia del generador sintético, que siempre
-    asignaba una `consequence` de un catálogo fijo) algunas variantes no
-    tienen consecuencia molecular anotada (`MC=` ausente en el VCF) -> NaN/
-    None, que `sorted` no puede comparar con texto. Se excluyen de la lista
-    de categorías; `_encode` ya les asigna código -1 (pandas Categorical.codes
-    para valores fuera de catálogo), distinto del resto — es una aproximación
-    aceptable para SHAP (heurística de explicabilidad, no el modelo real: el
-    pipeline entrenado sí imputa `consequence` ausente por moda, `preprocess.py`).
+    En ClinVar real hay variantes sin consecuencia anotada, y `sorted` no compara
+    NaN con texto. Se excluyen del catálogo y `_encode` les asigna código -1. Es una
+    aproximación aceptable aquí: el pipeline entrenado sí imputa por moda.
     """
     return {
         col: sorted({v for f in frames for v in f[col] if pd.notna(v)})
@@ -78,21 +69,12 @@ def compute_shap_values(
     max_background: int = _MAX_BACKGROUND,
     max_explain: int = _MAX_EXPLAIN,
 ):
-    """Calcula SHAP (clase positiva) para una muestra de `X_explain`.
+    """SHAP de la clase positiva para una muestra de `X_explain`.
 
-    Devuelve `(shap_values, sample_raw, sample_encoded)`: `shap_values` es el
-    objeto de `shap.Explainer` (clase positiva únicamente, `.values` de forma
-    `(n, n_features)`); `sample_raw` es el DataFrame original (sin codificar, útil
-    para citar el valor real de cada feature junto a su contribución
-    SHAP, la evidencia ACMG-símil ADR 007) — **conserva el índice original de `X_explain`** (no se
-    resetea) precisamente para que un caller pueda re-identificar cada fila
-    tras el muestreo/posible reordenado interno; `sample_encoded` es la misma
-    muestra con la columna categórica codificada a enteros (la que espera
-    `shap.summary_plot`).
-
-    Factorizado de `explain_model` para reutilizarse en la traducción a
-    evidencia tipo ACMG (`src/evaluate/acmg_evidence.py`) sin duplicar la
-    lógica de codificación/decodificación de la columna categórica.
+    Devuelve `(shap_values, sample_raw, sample_encoded)`. `sample_raw` conserva el
+    índice original para que el llamante pueda reidentificar cada fila tras el
+    muestreo interno; `sample_encoded` es la misma muestra con la categórica ya
+    codificada, que es lo que espera `shap.summary_plot`.
     """
     background_raw = shap.sample(
         X_background, min(max_background, len(X_background)), random_state=seed
@@ -119,17 +101,13 @@ def explain_model(
     out_dir: Path,
     seed: int = 42,
 ) -> Path:
-    """Calcula SHAP values sobre una muestra de `X_explain` y guarda artefactos.
+    """Calcula SHAP sobre una muestra de `X_explain` y guarda los artefactos.
 
-    * `X_background` referencia la distribución base (típicamente train); se
-      submuestrea a `_MAX_BACKGROUND` filas.
-    * `X_explain` es la muestra a explicar (típicamente el holdout no visto);
-      se submuestrea a `_MAX_EXPLAIN` filas.
+    `X_background` fija la distribución de referencia (train) y `X_explain` es lo que
+    se explica (el holdout no visto); ambos se submuestrean.
 
-    Guarda en `out_dir`: `shap_importance.csv` (ranking global, media del
-    valor absoluto) y `shap_summary.png` (summary plot por instancia; la
-    columna categórica aparece codificada como entero, no como texto).
-    Devuelve la ruta del CSV.
+    Escribe `shap_importance.csv` (ranking global por media del valor absoluto) y
+    `shap_summary.png`. Devuelve la ruta del CSV.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
 

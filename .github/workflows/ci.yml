@@ -21,9 +21,8 @@ jobs:
       - name: Lint (ruff)
         run: ruff check src tests
       - name: Auditoría de dependencias (pip-audit)
-        # No bloqueante: un CVE de terceros sin versión de corrección publicada
-        # (revisión interna del proyecto) no debe tumbar el pipeline; queda visible en
-        # el log para seguimiento manual.
+        # No bloqueante: un CVE de terceros sin corrección publicada no debe tumbar
+        # el pipeline; queda visible en el log para seguimiento manual.
         continue-on-error: true
         run: |
           pip install pip-audit

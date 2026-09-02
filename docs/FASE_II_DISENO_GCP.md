@@ -1,48 +1,41 @@
-# Fase II: diseño de la extensión a GCP (Opción A — documentada, no ejecutada)
+# Extensión a GCP: diseño documentado, no ejecutado
 
-**Decisión (2026-08-11):** Fase II se aborda primero como diseño documentado y razonado, sin desplegar nada real. Se reconsidera ejecutar (Opción B) solo si sobra tiempo antes del cierre del TFM — ver el trabajo futuro del proyecto (G1, G2, H1, H2) y el plan del proyecto (D6). Esta decisión evita el registro de una tarjeta de crédito (verificación de identidad para Cloud Run/Vertex AI) sin renunciar a la comparativa razonada que exige OE6.
+Reproduzco sobre Google Cloud Platform la misma arquitectura lógica de la fase local, con el único objetivo de sostener una comparativa razonada entre plataforma autogestionada y gestionada. Documenté el diseño completo sin llegar a desplegarlo: BigQuery Sandbox es gratuito y no exige tarjeta, pero Cloud Run y Vertex AI sí requieren una cuenta de facturación verificada (ADR 004), y el tiempo restante rendía más en la memoria que en operar una demo en la nube que no cambia ninguna conclusión de fondo. El despliegue real queda como trabajo futuro, con todo lo necesario ya especificado en `cloud/cloudrun/deploy.md` y `cloud/iac/main.tf.example`.
 
-## 1. Por qué Opción A y no Opción B
+## Arquitectura de datos: medallion en BigQuery
 
-- La Fase I local ya es, por sí sola, un TFM completo y defendible.
-- BigQuery Sandbox es gratis y sin tarjeta, pero Cloud Run/Vertex AI sí exigen una cuenta de facturación verificada con tarjeta (ADR 004).
-- El tiempo restante hasta la entrega es más valioso invertido en la memoria (Fase III) que en operar una demo real en la nube que no cambia ninguna conclusión de fondo del proyecto.
-- Si en algún momento sobra tiempo real, la Opción B (desplegar de verdad) está completamente especificada en `cloud/cloudrun/deploy.md` y `cloud/iac/main.tf.example` — no hay diseño pendiente, solo ejecución.
-
-## 2. Arquitectura de datos: medallion en BigQuery
-
-Mismas tres capas que la Fase I local (`data/raw` → `data/interim` → `data/processed`), reproducidas como esquemas de BigQuery. Diseño completo en `cloud/bigquery/`:
+Las mismas tres capas que en local, reproducidas como esquemas de BigQuery (`cloud/bigquery/`):
 
 | Fichero | Capa | Equivalente local |
 |---|---|---|
-| `cloud/bigquery/01_raw_ddl.sql` | RAW | `src/ingest/download.py` |
-| `cloud/bigquery/02_silver_annotate.sql` | SILVER | `src/annotate/annotate.py` / `multi_source.py` |
-| `cloud/bigquery/03_gold_build_dataset.sql` | GOLD | `src/features/build_dataset.py` |
+| `01_raw_ddl.sql` | RAW | `src/ingest/download.py` |
+| `02_silver_annotate.sql` | SILVER | `src/annotate/annotate.py`, `multi_source.py` |
+| `03_gold_build_dataset.sql` | GOLD | `src/features/build_dataset.py` |
 
-**Hallazgo de diseño relevante, verificado (no asumido):** `bigquery-public-data.gnomAD.v3_genomes__chr{N}` es un dataset público real, consultable sin coste dentro del *free tier* del Sandbox. `bigquery-public-data.human_variant_annotation.ncbi_clinvar_hg38_20180701` también existe, pero es un volcado **estático fechado a julio de 2018** — no las dos *releases* fechadas (2023-12 / 2025-06) que este proyecto necesita para medir la deriva de reclasificación real. Por tanto, la capa RAW de la Fase II seguiría cargando los mismos VCF que descarga `src/ingest/download.py` (subidos a Cloud Storage), no el snapshot público de ClinVar. CADD, REVEL y AlphaMissense tampoco están alojados como dataset público en BigQuery: en una ejecución real (Opción B) habría que cargar sus ficheros precalculados a Cloud Storage, igual que hoy se resuelve vía `myvariant.info` en local.
+Verifiqué, en vez de asumirlo, qué hay realmente disponible como dataset público. `bigquery-public-data.gnomAD.v3_genomes__chr{N}` existe y es consultable sin coste dentro del *free tier*. `bigquery-public-data.human_variant_annotation.ncbi_clinvar_hg38_20180701` también existe, pero es un volcado estático de julio de 2018, no las dos *releases* fechadas que este proyecto necesita para medir deriva: la capa RAW seguiría cargando los mismos VCF que descarga `download.py`, subidos a Cloud Storage. CADD, REVEL y AlphaMissense tampoco están alojados como dataset público en BigQuery; habría que cargar sus ficheros precalculados a Cloud Storage, igual que hoy se resuelven vía `myvariant.info`.
 
-## 3. Despliegue del servicio: Cloud Run
+## Servicio: Cloud Run
 
-Diseño completo en `cloud/cloudrun/deploy.md`: reutiliza `docker/app.Dockerfile` sin cambios (portabilidad local↔cloud, ADR 001), `min-instances=0` (coste cero fuera de uso), autenticación IAM + `TFM_API_KEY` vía Secret Manager (nunca en claro), y el modelo montado desde Cloud Storage en vez de empaquetado en la imagen.
+Diseño en `cloud/cloudrun/deploy.md`. Reutiliza `docker/app.Dockerfile` sin cambios —la portabilidad local-nube es una decisión de arquitectura explícita (ADR 001)—, con `min-instances=0` para coste cero fuera de uso, autenticación IAM junto a `TFM_API_KEY` vía Secret Manager, y el modelo montado desde Cloud Storage en vez de empaquetado en la imagen, para no reconstruirla en cada reentrenamiento.
 
-## 4. Infraestructura como código
+## Infraestructura como código
 
-Esquema de referencia en `cloud/iac/main.tf.example` (extensión `.example` deliberada: no se ha ejecutado `terraform plan`/`apply`, es documentación de qué recursos harían falta, no IaC lista para producción): datasets de BigQuery, bucket de Cloud Storage para RAW, servicio de Cloud Run con escalado a cero, y binding de IAM que explícitamente nunca usa `allUsers` (coherente con de la auditoría de la Fase I).
+`cloud/iac/main.tf.example` describe los recursos necesarios: datasets de BigQuery, bucket para RAW, servicio de Cloud Run con escalado a cero y binding de IAM que nunca usa `allUsers`. La extensión `.example` es deliberada: no he ejecutado `terraform plan` ni `apply`, así que es documentación de qué haría falta, no infraestructura lista para producción.
 
-## 5. Comparativa razonada: local (MLflow autogestionado) vs. GCP gestionado [OE6]
+## Comparativa local frente a nube
 
-| Dimensión | Fase I — local (MLflow + Docker) | Fase II — GCP (BigQuery + Cloud Run + Vertex AI) |
+| Dimensión | Local (MLflow y Docker) | GCP (BigQuery, Cloud Run, Vertex AI) |
 |---|---|---|
-| **Coste** | Cero, sin condiciones. | Cero en BigQuery Sandbox; Cloud Run/Vertex AI exigen cuenta de facturación verificada con tarjeta, aunque el *free tier* no cobre si se respeta el escalado a cero. |
-| **Reproducibilidad** | Total y verificada: mismo commit + mismos datos → mismos resultados (con las salvedades de determinismo de LightGBM ya corregidas, ver la revisión interna del proyecto). | Equivalente en teoría (mismo código, mismos contenedores); no verificado empíricamente en este proyecto porque no se ha ejecutado (Opción A). |
-| **Esfuerzo operativo** | Bajo: `docker compose up`, sin gestión de cuotas ni IAM más allá de lo local. | Mayor: gestión de proyectos GCP, cuentas de servicio, IAM, cuotas del *free tier*, Secret Manager. |
-| **Escalabilidad** | Limitada por la máquina local; acotado deliberadamente a chr 1-3 (riesgo R2 del plan). | BigQuery escala a todo el genoma sin coste añadido dentro del Sandbox (1 TB de consultas/mes); Cloud Run escala horizontalmente el servicio de inferencia. |
-| **Gobernanza del modelo** | MLflow Model Registry autogestionado, *stages* `None→Staging→Production`, gate humano en `src/monitor/retrain.py`. | Vertex AI Model Registry gestionado ofrece lo mismo con menos mantenimiento operativo propio, a cambio de menor control directo y de acoplamiento al proveedor. |
-| **Adecuación al dominio biomédico** | Adecuada para un volumen acotado (Fase I); sin garantías de cumplimiento normativo específico más allá de trabajar solo con datos públicos agregados. | Los datasets genómicos públicos (gnomAD, 1000 Genomes) ya están alojados y optimizados en BigQuery por el propio proveedor — ventaja real para escalar sin reingeniería. |
-| **Riesgo de coste inesperado** | Ninguno. | Bajo si se respeta `min-instances=0` y se desmontan recursos tras cada demo (`docs/retraining_flow.md`); el riesgo real está en dejar recursos *always-on* olvidados. |
+| Coste | Cero, sin condiciones | Cero en BigQuery Sandbox; Cloud Run y Vertex AI exigen tarjeta verificada, aunque el *free tier* no cobre con escalado a cero |
+| Reproducibilidad | Verificada: mismo commit y mismos datos dan el mismo resultado, con el determinismo de LightGBM ya corregido | Equivalente en teoría, mismo código y mismos contenedores; no verificada empíricamente aquí |
+| Esfuerzo operativo | Bajo: `docker compose up` | Mayor: proyectos, cuentas de servicio, IAM, cuotas y Secret Manager |
+| Escalabilidad | Limitada por la máquina local; acotado a chr1-3 | BigQuery cubre todo el genoma dentro del Sandbox (1 TB de consultas/mes); Cloud Run escala el servicio horizontalmente |
+| Gobernanza del modelo | Model Registry autogestionado con estados y gate humano en `retrain.py` | Vertex AI Model Registry ofrece lo mismo con menos mantenimiento, a cambio de menor control y acoplamiento al proveedor |
+| Dominio biomédico | Adecuada para un volumen acotado; sin garantías normativas más allá de trabajar solo con datos públicos | Los datasets genómicos públicos ya están alojados y optimizados por el proveedor, ventaja real para escalar sin reingeniería |
+| Riesgo de coste | Ninguno | Bajo con `min-instances=0`; el riesgo real es dejar recursos *always-on* olvidados |
 
-**Conclusión de la comparativa:** para el volumen y el calendario de este TFM, la plataforma local autogestionada (MLflow + Docker) es la opción correcta — coste cero garantizado, reproducibilidad ya verificada, sin fricción operativa de IAM/cuotas. La ventaja real de GCP no es el coste ni la reproducibilidad (ambos ya resueltos en local), sino la **escalabilidad de la capa de datos** (BigQuery sobre todo el genoma, no solo chr 1-3) y la **reducción de mantenimiento operativo** de un Model Registry gestionado — ninguna de las dos es una necesidad real de un TFM, pero sí lo sería de una puesta en producción real a mayor escala.
+**Conclusión.** Para el volumen y el calendario de este trabajo, la plataforma local autogestionada es la opción correcta: coste cero garantizado, reproducibilidad ya verificada y sin fricción de IAM ni cuotas. La ventaja real de GCP no está en el coste ni en la reproducibilidad, ambos resueltos en local, sino en la escalabilidad de la capa de datos y en la reducción del mantenimiento operativo de un Model Registry gestionado. Ninguna de las dos es una necesidad de este trabajo, pero sí lo serían de una puesta en producción a mayor escala.
 
-## 6. Trabajo futuro (Opción B)
+## Si se decidiera ejecutarlo
 
-Si se decide ejecutar realmente: (1) crear el proyecto GCP y habilitar BigQuery Sandbox (sin tarjeta); (2) cargar los VCF de ClinVar y los ficheros de CADD/REVEL/AlphaMissense a Cloud Storage; (3) ejecutar el DDL de `cloud/bigquery/`; (4) verificar paridad de features frente a la capa SILVER local (G2); (5) solo si se decide registrar tarjeta, desplegar `cloud/cloudrun/deploy.md` y desmontar los recursos tras la demo.
+Crear el proyecto y habilitar BigQuery Sandbox, que no exige tarjeta; cargar los VCF de ClinVar y los ficheros de CADD, REVEL y AlphaMissense a Cloud Storage; ejecutar el DDL de `cloud/bigquery/`; verificar paridad de features frente a la capa SILVER local; y, solo si se acepta registrar tarjeta, desplegar según `cloud/cloudrun/deploy.md` y desmontar los recursos tras la demo.

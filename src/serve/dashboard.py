@@ -1,12 +1,10 @@
-"""Dashboard interactivo de exploración de VUS priorizadas (ADR 007 §5).
+"""Dashboard de exploración de las VUS priorizadas (ADR 007 §5).
 
-Lee los informes ya generados por el generador de informes por VUS (`src/serve/vus_reports.py` →
-`reports/serving/vus_reports_{split}.json`); no recalcula SHAP en cada
-petición HTTP (sería demasiado lento para una página web). Si el informe no
-existe todavía, muestra cómo generarlo en vez de un error 500 (mismo patrón
-de degradación explícita que el resto del proyecto).
+Solo lee los informes ya generados por `src/serve/vus_reports.py`: no recalcula SHAP
+por petición HTTP, que sería demasiado lento. Si el informe no existe, muestra cómo
+generarlo en vez de devolver un error.
 
-Ruta: GET /dashboard, GET /dashboard/<split> (train|test).
+    GET /dashboard[/<split>]  con split en {train, test}
 """
 from __future__ import annotations
 
@@ -55,9 +53,8 @@ _PAGE = """<!doctype html>
 <body>
 <header>
   <h1>Priorización de VUS por IA</h1>
-  <p>{% if using_ranking %}Ordenadas por el score del modelo de ranking dedicado.
-     {% else %}Ordenadas por probabilidad de patogenicidad; el modelo de ranking el objetivo de
-     ranking
+  <p>{% if using_ranking %}Ordenadas por el score del modelo de ranking.
+     {% else %}Ordenadas por probabilidad de patogenicidad; el modelo de ranking
      todavía no está entrenado.{% endif %}
      Apoyo a la revisión manual, no un veredicto clínico ni una clasificación ACMG certificada.</p>
 </header>
@@ -165,11 +162,9 @@ def _view_record(r: dict) -> dict:
 @dashboard_bp.get("/dashboard")
 @dashboard_bp.get("/dashboard/<split>")
 def dashboard(split: str = "test"):
-    # la revisión interna del proyecto: `split` no se valida contra una lista permitida a
-    # nivel de Flask (antes solo el CLI de vus_reports.py usaba `choices=[...]`).
-    # No era explotable como path traversal (el converter <string> de Werkzeug
-    # excluye "/", y `split` se interpola en el NOMBRE de fichero, no como
-    # segmento de ruta), pero faltaba el control explícito de defensa en profundidad.
+    # Validación explícita de `split` como defensa en profundidad: no era explotable
+    # como path traversal -Werkzeug excluye "/" y el valor se interpola en el nombre
+    # de fichero-, pero el control faltaba a nivel de Flask.
     if split not in _ALLOWED_SPLITS:
         abort(404, description=f"split debe ser uno de {sorted(_ALLOWED_SPLITS)}")
     path = PROJECT_ROOT / "reports" / "serving" / f"vus_reports_{split}.json"

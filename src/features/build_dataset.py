@@ -1,26 +1,20 @@
-"""Construcción del dataset GOLD: binarización del target y split temporal.
+"""Capa GOLD: binariza el target y separa temporalmente train y test.
 
-SILVER (anotado por release) → [este módulo] → GOLD (train/test + VUS + excluidas)
+Buckets de `clnsig` (definidos en `config/config.yaml`, tabla exhaustiva en
+`docs/datasheet.md`):
+  * Positivo: Pathogenic, Likely_pathogenic, Pathogenic/Likely_pathogenic.
+  * Negativo: Benign, Likely_benign, Benign/Likely_benign.
+  * VUS reservada: estrictamente "Uncertain_significance".
+  * Excluida: cualquier otro valor -clasificaciones conflictivas en cualquiera de
+    los vocabularios de ClinVar, not_provided, other, drug_response-. Se persisten
+    aparte por trazabilidad, no se descartan en silencio.
 
-Reglas del target (desde `config/config.yaml`, ver `docs/datasheet.md`):
-  * Positivo (1): Pathogenic, Likely_pathogenic, Pathogenic/Likely_pathogenic.
-  * Negativo (0): Benign, Likely_benign, Benign/Likely_benign.
-  * VUS (población reservada para el modelo de reclasificación, priorización):
-  estrictamente
-    "Uncertain_significance" (`src/features/reclassification.py::VUS_LABEL`).
-  * Excluidas (ni entrenan ni se priorizan como VUS): cualquier otro `clnsig`
-    (clasificaciones conflictivas -- en cualquier vocabulario de release --,
-    not_provided, other, drug_response, etc.). Se persisten aparte por
-    trazabilidad, no se descartan en silencio (una revisión posterior del proyecto: antes se
-    mezclaban con la población de VUS sin documentarlo,
-    y esa mezcla es la causa de la discrepancia 67 vs 54 reclasificaciones
-    citada en la memoria -- ver un hallazgo de esa revisión).
+Mezclar conflictivas dentro de la población de VUS infla su tamaño y produce
+recuentos de reclasificación distintos según el módulo que los calcule; por eso la
+definición estricta vive en un único sitio (`reclassification.py::VUS_LABEL`).
 
-Split temporal (clave para el drift, OE5):
-  * TRAIN = release antigua (config.data.clinvar_train_release).
-  * TEST = release nueva (config.data.clinvar_test_release).
+Train es la release antigua y test la nueva: partición temporal, no aleatoria.
 
-Uso:
     python -m src.features.build_dataset
 """
 from __future__ import annotations
@@ -69,7 +63,7 @@ def _summary(name: str, df: pd.DataFrame) -> dict:
 
 
 def _label_taxonomy(raw: pd.DataFrame, cfg: dict) -> pd.DataFrame:
-    """Tabla exhaustiva CLNSIG crudo -> bucket asignado (revisión posterior del proyecto)."""
+    """Tabla exhaustiva CLNSIG crudo -> bucket asignado."""
     mapping = _label_map(cfg)
     counts = raw["clnsig"].value_counts()
     rows = []

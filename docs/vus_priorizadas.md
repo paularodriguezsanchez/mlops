@@ -1,10 +1,9 @@
-# Priorización de VUS por riesgo estimado: release test
+# Priorización de VUS: release test
 
-**Esto no es un veredicto clínico ni sustituye la curación manual.** Es una
-ayuda para dirigir y agilizar la investigación posterior que un revisor
-tendría que hacer de todos modos, apoyándose en el conocimiento previo de
-ClinVar/gnomAD/CADD/REVEL/AlphaMissense ya construido. El criterio de
-priorización: revisar antes las de arriba, ordenadas por el score del modelo de ranking dedicado (LightGBM `lambdarank`, entrenado para optimizar directamente el orden de prioridad y evaluado con NDCG@k — ver ADR 007 §5.3, `reports, training, ranking_metrics.csv`). La probabilidad de patogenicidad del modelo de patogenicidad se muestra también, como referencia adicional.
+No es un veredicto clínico ni sustituye la curación manual: dirige la revisión que
+un experto haría de todos modos, apoyándose en el conocimiento ya acumulado en
+ClinVar, gnomAD, CADD, REVEL y AlphaMissense. Se revisan antes las de arriba,
+ordenadas por el score del modelo de ranking (LightGBM `lambdarank`, entrenado para optimizar directamente el orden y evaluado con NDCG@k; ver ADR 007 §5.3 y `reports/training/ranking_metrics.csv`). La probabilidad de patogenicidad se muestra como referencia adicional.
 
 6042 VUS reservadas en total. Top 20 por prioridad:
 

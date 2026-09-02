@@ -1,29 +1,14 @@
-"""Ingesta de datos crudos (capa RAW, inmutable).
+"""Capa RAW inmutable: descarga las releases fechadas de ClinVar.
 
-Descarga las releases fechadas de ClinVar (train/test) declaradas en
-`config/config.yaml`. Este es un proyecto sobre variantes genéticas reales:
-por defecto NO existe una sustitución automática y silenciosa por datos
-sintéticos. Si la red no está disponible, `run` falla con una excepción
-explícita en vez de degradar a datos inventados (revisión 2026-07-30 de
-ADR 005, tras una revisión interna). El generador OFFLINE determinista (`synthetic.py`)
-sigue existiendo, pero queda reservado A PROPÓSITO a dos usos, nunca a
-generar un resultado citable en la memoria:
-  (a) fixture rápida y determinista de tests/CI (se invoca ahí con
-      `offline=True` de forma explícita en cada test que lo necesita), y
-  (b) uso manual explícito de quien ejecuta el comando, con `--offline`,
-      cuando de verdad quiere datos sintéticos a sabiendas (p. ej. para
-      probar el pipeline sin esperar a la red).
+Sin red, `run` falla con una excepción explícita en vez de degradar a datos
+sintéticos (ADR 005): el generador determinista solo se alcanza con `--offline`, y
+queda reservado a pruebas y a comprobaciones manuales del pipeline, nunca a
+producir un resultado citable.
 
-Uso:
-    python -m src.ingest.download # exige descarga real; falla si no hay red
-    python -m src.ingest.download --offline # opt-in EXPLÍCITO al generador determinista
-    python -m src.ingest.download --force # regenera aunque exista
+Escribe `data/raw/MANIFEST.json` con la procedencia, el tamaño y el SHA-256 de cada
+fichero, que es lo que sostiene la trazabilidad extremo a extremo.
 
-Salida (en data/raw/, inmutable):
-    clinvar_2023-12.vcf.gz
-    clinvar_2025-06.vcf.gz
-    dbnsfp_subset.tsv.gz
-    MANIFEST.json (fuente, tamaños y sha256, trazabilidad de datos, T2)
+    python -m src.ingest.download [--offline] [--force] [--prospective]
 """
 from __future__ import annotations
 
@@ -52,14 +37,10 @@ def _sha256(path: Path) -> str:
 
 
 def _try_download(url: str, dest: Path) -> bool:
-    """Intenta descargar `url` a `dest`. Devuelve True si tuvo éxito.
+    """Descarga `url` en `dest`; True si tuvo éxito.
 
-    `url` viene de `config/config.yaml` (`sources.clinvar.base_url`), no de
-    entrada de un usuario final, pero a diferencia de las URLs fijas de
-    `multi_source.py` sí es reconstruida a partir de ese fichero de
-    configuración. Se valida el esquema explícitamente (S310, la revisión interna del proyecto):
-    un `config.yaml` mal editado con `file://` no debe poder leer ficheros
-    locales arbitrarios a través de este descargador.
+    La URL se reconstruye desde `config.yaml`, así que valido el esquema: un fichero
+    mal editado con `file://` no debe poder leer ficheros locales por esta vía.
     """
     if urllib.parse.urlparse(url).scheme not in ("http", "https"):
         raise ValueError(f"esquema de URL no permitido en config.yaml: {url}")
@@ -88,16 +69,10 @@ def _clinvar_targets(cfg: dict, rawdir: Path) -> dict[str, tuple[str, Path]]:
 
 
 def run(offline: bool = False, force: bool = False) -> dict:
-    """Ejecuta la ingesta. Devuelve el manifest generado.
+    """Ejecuta la ingesta y devuelve el manifest.
 
-    `offline=False` (por defecto, uso real): exige ClinVar real de NCBI. Si la
-    descarga falla, **lanza `RuntimeError`** en vez de sustituir por datos
-    sintéticos — no hay fallback automático (revisión de ADR 005, 2026-07-30):
-    son variantes asociadas a enfermedades reales, no un dato donde una
-    aproximación estadísticamente plausible sea aceptable como resultado.
-
-    `offline=True` (opt-in explícito, solo tests/desarrollo): usa el generador
-    determinista de `synthetic.py`, sin tocar la red. Nunca se activa solo.
+    Por defecto exige ClinVar real y lanza `RuntimeError` si la descarga falla.
+    `offline=True` usa el generador determinista, y nunca se activa por sí solo.
     """
     cfg = load_config()
     rawdir = raw_dir()
@@ -197,13 +172,10 @@ def _write_manifest(rawdir: Path, targets, dbnsfp_path: Path | None, source: str
 
 
 def run_prospective(force: bool = False) -> Path:
-    """Descarga la release PROSPECTIVA (`config.data.clinvar_prospective_release`).
+    """Descarga la release prospectiva, independiente del par train/test.
 
-    Independiente del par train/test habitual: solo sirve para obtener la
-    verdad terreno (CLNSIG) de una release publicada después de fijar ese
-    par, para la validación temporal real del modelo de reclasificación (una revisión
-    posterior del proyecto; ver `src.train.train_reclass.run_prospective`).
-    No sustituye nunca por datos sintéticos: si no hay red, falla explícito.
+    Solo sirve para leer la verdad terreno de una release publicada después de fijar
+    ese par (`src.train.train_reclass.run_prospective`). Sin fallback sintético.
     """
     cfg = load_config()
     rel = clinvar_prospective_release()
@@ -241,9 +213,8 @@ def _parse_args(argv=None):
     p.add_argument("--force", action="store_true",
                    help="Regenera aunque los ficheros RAW ya existan.")
     p.add_argument("--prospective", action="store_true",
-                   help="Descarga solo la release prospectiva de validación temporal "
-                        "del modelo de reclasificación, "
-                        "en vez del par train, test habitual.")
+                   help="Descarga solo la release prospectiva de validación temporal, "
+                        "en vez del par train/test habitual.")
     return p.parse_args(argv)
 
 

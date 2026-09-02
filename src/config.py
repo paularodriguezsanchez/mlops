@@ -17,15 +17,11 @@ def _load_config_cached(path: Path) -> dict:
 
 
 def load_config(path: str | Path | None = None) -> dict:
-    """Devuelve la configuración como diccionario. Cacheada.
+    """Configuración del proyecto como diccionario, cacheada.
 
-    `path=None` (uso normal) resuelve `CONFIG_PATH` en el momento de la
-    llamada, no en la definición de la función: así un test puede
-    monkeypatchear `config.CONFIG_PATH` y que se respete. Antes, al ser el
-    valor por defecto de un parámetro, quedaba fijado en el import y
-    monkeypatchear `CONFIG_PATH` no tenía ningún efecto (detectado al validar
-    el modelo de reclasificación: los tests "aislados" en `tmp_path` seguían leyendo la
-    config real).
+    `CONFIG_PATH` se resuelve en cada llamada, no como valor por defecto del
+    parámetro: de lo contrario queda fijado en el import y sustituirlo desde un test
+    no tiene efecto, de modo que un test "aislado" seguiría leyendo la config real.
     """
     return _load_config_cached(Path(path) if path is not None else CONFIG_PATH)
 
@@ -59,34 +55,25 @@ def processed_dir() -> Path:
 
 
 def chromosomes_subset() -> list[str] | None:
-    """Cromosomas a los que se acota la Fase I. Lista vacía/None = todos."""
+    """Cromosomas a los que se acota el análisis. Lista vacía o None = todos."""
     subset = load_config()["data"].get("chromosomes_subset") or None
     return [str(c) for c in subset] if subset else None
 
 
 def max_variants_per_release() -> int | None:
-    """Límite de variantes por release ANTES de anotar (acota volumen y coste de red
-
-    con ClinVar real + `annotation_source: multi_source`; ver la revisión interna del proyecto).
-    """
+    """Variantes por release antes de anotar: acota volumen y coste de red."""
     limit = load_config()["data"].get("max_variants_per_release")
     return int(limit) if limit else None
 
 
 def max_new_variants_per_release() -> int | None:
-    """Variantes genuinamente nuevas a añadir en releases posteriores a la primera,
-
-    además de la cohorte retenida (ver `max_variants_per_release`). Sin límite si
-    no está definido en config (toma todas las que queden tras retener la cohorte).
-    """
+    """Variantes nuevas a añadir en releases posteriores, además de la cohorte retenida."""
     limit = load_config()["data"].get("max_new_variants_per_release")
     return int(limit) if limit else None
 
 
 def clinvar_prospective_release() -> str | None:
-    """Release adicional para validación temporal prospectiva del modelo de reclasificación (ver
-    config.yaml).
-    """
+    """Release adicional para la validación temporal prospectiva."""
     return load_config()["data"].get("clinvar_prospective_release")
 
 

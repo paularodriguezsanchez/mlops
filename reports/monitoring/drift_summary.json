@@ -9,12 +9,12 @@
     "alert": false,
     "drifted_features": []
   },
-  "concept_drift": {
+  "reclassification_drift": {
     "n_shared": 7997,
     "n_reclassified": 55,
     "n_new_variants": 4000,
     "model_accuracy_on_reclassified": 0.9636,
-    "interpretation": "El modelo se entrenó cuando estas variantes eran VUS (excluidas). Su acierto frente a la nueva verdad clínica mide el impacto del concept drift; por debajo de lo esperado justifica reentrenar.",
+    "interpretation": "El modelo se entrenó cuando estas variantes eran VUS, excluidas del entrenamiento. Su acierto frente al veredicto clínico nuevo mide el impacto de la deriva; por debajo de lo esperado, justifica reentrenar.",
     "share_reclassified": 0.0069,
     "reclassified_threshold": 0.02,
     "alert": false

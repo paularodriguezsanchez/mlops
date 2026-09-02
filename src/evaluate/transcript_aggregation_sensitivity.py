@@ -1,22 +1,13 @@
-"""Sensibilidad de la agregación por transcrito (media vs. máximo).
+"""Sensibilidad de la agregación por transcrito: media frente a máximo.
 
-Motivo: cuando myvariant.info devuelve
-una variante mapeada a varios transcritos/isoformas, `multi_source.py`
-promedia los valores (`_mean_or_none`) sin justificar por qué la media es la
-agregación adecuada ni analizar la sensibilidad frente a otras estrategias
-(p. ej. el score más extremo, más conservador desde un punto de vista de
-priorización clínica). Una revisión anterior lo dejó explícitamente reconocido como no abordado;
-este módulo lo cuantifica.
+Cuando una variante mapea a varios transcritos, `multi_source.py` promedia los
+valores. La media no es la única opción razonable -el máximo es más conservador
+para priorizar-, así que aquí cuantifico cuánto cambia el resultado.
 
-Este módulo SÍ requiere red (re-consulta myvariant.info para los mismos
-IDs de variante ya anotados, esta vez conservando el valor MÁXIMO por
-transcrito en vez de la media, para los 7 campos que pueden venir como
-lista). Alcance deliberadamente acotado: un análisis de sensibilidad por
-validación cruzada sobre la población YA etiquetada (train+test combinados),
-no una sustitución del protocolo de evaluación canónico del modelo de patogenicidad -- los
-resultados de esta memoria siguen siendo los de la agregación por media.
+Requiere red: re-consulta los mismos identificadores conservando esta vez el máximo
+por transcrito. El alcance es acotado a propósito -validación cruzada sobre la
+población ya etiquetada-, no sustituye al protocolo de evaluación canónico.
 
-Uso:
     python -m src.evaluate.transcript_aggregation_sensitivity
 """
 from __future__ import annotations

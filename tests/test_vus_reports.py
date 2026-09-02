@@ -90,8 +90,7 @@ def test_generate_reports_con_modelo_de_reclasificacion(tmp_path, monkeypatch):
     records = json.loads(result["json"].read_text(encoding="utf-8"))
     assert any(r["probabilidad_reclasificacion"] is not None for r in records)
     for rec in records:
-        # la revisión interna del proyecto: siempre que hay probabilidad, viene acompañada
-        # de su fiabilidad (True/False), nunca ambigua a medias.
+        # Siempre que hay probabilidad, viene acompañada de su fiabilidad.
         if rec["probabilidad_reclasificacion"] is not None:
             assert isinstance(rec["probabilidad_reclasificacion_fiable"], bool)
         else:
@@ -136,4 +135,4 @@ def test_generate_reports_usa_ranking_si_esta_entrenado(tmp_path, monkeypatch):
     for rec in records:
         assert "ranking_score" in rec
     doc_text = result["doc"].read_text(encoding="utf-8")
-    assert "modelo de ranking dedicado" in doc_text
+    assert "score del modelo de ranking" in doc_text

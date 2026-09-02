@@ -1,16 +1,13 @@
-"""Informes automáticos por VUS, basados en plantilla (ADR 007 §5).
+"""Informes automáticos por VUS, generados por plantilla (ADR 007 §5).
 
-Deliberadamente **basados en plantilla, no en generación libre de un LLM**:
-en un informe que puede influir en qué VUS revisa antes un clínico, un texto
-inventado (alucinado) es un riesgo real, y una plantilla con los datos reales
-del modelo no lo tiene. Cada informe cita: la probabilidad de patogenicidad,
-la probabilidad de reclasificación próxima (si el modelo de reclasificación
-está
-disponible) y la evidencia SHAP→ACMG del evidencia ACMG-símil (`src/evaluate/acmg_evidence.py`).
+Por plantilla y no por generación libre de un modelo de lenguaje: en un informe que
+puede influir en qué VUS revisa antes un clínico, un texto inventado es un riesgo
+real que una plantilla con datos verificables no tiene.
 
-Uso:
-    python -m src.serve.vus_reports # top 10, release test
-    python -m src.serve.vus_reports --top-n 15 --split train
+Cada informe cita la probabilidad de patogenicidad, la de reclasificación próxima
+si ese modelo está disponible, y la evidencia SHAP traducida a códigos ACMG-símiles.
+
+    python -m src.serve.vus_reports [--split train] [--top-n 15]
 """
 from __future__ import annotations
 
@@ -32,13 +29,10 @@ _RECLASS_MODEL_DIR = PROJECT_ROOT / "models" / "reclassification_model"
 
 
 def _load_reclass_model() -> tuple[object, bool] | tuple[None, None]:
-    """Carga el modelo de reclasificación si existe; si no, degrada sin bloquear
-    (igual que Evidently/ADR005).
+    """Carga el modelo de reclasificación si existe; si no, degrada sin bloquear.
 
-    Devuelve `(modelo, reliable)`: `reliable` viene de `models/reclassification_model/
-    metrics.json` (escrito por `train_reclass.py`, ROC AUC >= umbral, ver la revisión interna del
-    proyecto). Si el fichero de métricas no existe (modelo entrenado antes de este fix),
-    se asume `reliable=False` — más seguro no dar por buena una señal sin verificar.
+    Devuelve `(modelo, reliable)`, con `reliable` leído de `metrics.json`. Sin ese
+    fichero se asume `False`: más vale no dar por buena una señal sin verificar.
     """
     if not _RECLASS_MODEL_DIR.exists():
         return None, None
@@ -94,18 +88,15 @@ def generate_reports(split: str = "test", top_n: int = 10) -> dict:
     train_df = pd.read_parquet(processed_dir() / "train.parquet")
 
     predictor = get_predictor()
-    # Mismo criterio de orden que la priorización de VUS (`prioritize_vus.py`): ranking dedicado
-    # si está entrenado, si no, probabilidad de patogenicidad. Ambos
-    # módulos comparten `load_ranking_model`/`rank_vus` para no divergir.
+    # Mismo criterio de orden que `prioritize_vus.py`, con el que comparte
+    # `load_ranking_model` y `rank_vus` para no divergir.
     ranking_model, ranking_preprocessor = load_ranking_model()
     ranked = rank_vus(predictor, vus, ranking_model, ranking_preprocessor).head(top_n)
     ranked = ranked.reset_index(drop=True)
 
     reclass_model, reclass_reliable = _load_reclass_model()
-    # el modelo de reclasificación usa RECLASS_FEATURE_COLUMNS (incluye `review_stars`,
-    # ADR 008), no
-    # FEATURE_COLUMNS -- el pipeline guardado ya sabe seleccionar sus
-    # propias columnas de entrada, basta con ofrecérselas todas disponibles.
+    # Este modelo usa RECLASS_FEATURE_COLUMNS, que incluye `review_stars` (ADR 008):
+    # el pipeline guardado selecciona sus columnas, basta con ofrecérselas todas.
     reclass_probs = (
         reclass_model.predict_proba(ranked[RECLASS_FEATURE_COLUMNS])[:, 1]
         if reclass_model is not None else [None] * len(ranked)
@@ -114,8 +105,7 @@ def generate_reports(split: str = "test", top_n: int = 10) -> dict:
     explain_cols = [*FEATURE_COLUMNS, *_KEY]
     sample, evidence = explain_variant_acmg(
         predictor.model, train_df[FEATURE_COLUMNS], ranked[explain_cols])
-    # `sample` puede venir en otro orden que `ranked` (ver acmg_evidence.py):
-    # se re-alinea por clave antes de renderizar.
+    # `sample` puede venir en otro orden que `ranked`: se realinea por clave.
     order = {tuple(r[c] for c in _KEY): i for i, (_, r) in enumerate(sample.iterrows())}
 
     sections, records = [], []
@@ -153,29 +143,27 @@ def _write_doc(
     sections: list[str], split: str, n_total: int, json_path: Path, using_ranking: bool,
 ) -> Path:
     orden_nota = (
-        "Las variantes se ordenan por el score del modelo de ranking dedicado "
-        "(LightGBM `lambdarank`) — ver `src/serve/prioritize_vus.py`."
+        "Ordenadas por el score del modelo de ranking (LightGBM `lambdarank`), ver "
+        "`src/serve/prioritize_vus.py`."
         if using_ranking else
-        "Las variantes se ordenan por la probabilidad de patogenicidad : el "
-        "modelo de ranking no está entrenado todavía (`make train-ranking`)."
+        "Ordenadas por probabilidad de patogenicidad: el modelo de ranking no está "
+        "entrenado todavía (`make train-ranking`)."
     )
     doc = PROJECT_ROOT / "docs" / f"vus_informes_{split}.md"
     body = "\n".join(sections)
     doc.write_text(f"""# Informes de VUS priorizadas: release {split}
 
-Generados por plantilla (no por un LLM libre) a partir de los modelos y la
-explicabilidad ya construidos: probabilidad de patogenicidad
-(`src/serve/predictor.py`), probabilidad de reclasificación próxima
-(`src, train, train_reclass.py`) y evidencia SHAP traducida a lenguaje tipo
-ACMG/AMP (`src, evaluate, acmg_evidence.py`). **No es una clasificación
-ACMG certificada** ni sustituye la curación clínica experta. {orden_nota}
+Generados por plantilla, no por un modelo de lenguaje libre, a partir de la
+probabilidad de patogenicidad (`src/serve/predictor.py`), la de reclasificación
+próxima (`src/train/train_reclass.py`) y la evidencia SHAP traducida a códigos
+ACMG-símiles (`src/evaluate/acmg_evidence.py`). No es una clasificación ACMG
+certificada ni sustituye la curación clínica experta. {orden_nota}
 
-{n_total} VUS reservadas en total en esta release. Informes de las
-{len(sections)} priorizadas primero:
+{n_total} VUS reservadas en esta release. Informes de las {len(sections)} primeras:
 
 {body}
 
-Datos estructurados (para el dashboard): `{json_path.relative_to(PROJECT_ROOT).as_posix}`.
+Datos estructurados (para el dashboard): `{json_path.relative_to(PROJECT_ROOT).as_posix()}`.
 
 ## Reproducir
 ```bash
@@ -186,7 +174,7 @@ python -m src.serve.vus_reports --split {split} --top-n {len(sections)}
 
 
 def _parse_args(argv=None):
-    p = argparse.ArgumentParser(description="Genera informes de VUS priorizadas .")
+    p = argparse.ArgumentParser(description="Genera los informes de VUS priorizadas.")
     p.add_argument("--split", default="test", choices=["train", "test"])
     p.add_argument("--top-n", type=int, default=10)
     return p.parse_args(argv)

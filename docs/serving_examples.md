@@ -1,9 +1,12 @@
-# Servicio de inferencia: variantes de prueba documentadas [OE4]
+# Servicio de inferencia: variantes de prueba
 
-El servicio recibe una variante `(chrom, pos, ref, alt)`, la **anota**
-(consecuencia funcional + scores in silico + frecuencia) y devuelve la
-**predicción de patogenicidad** con su probabilidad. Se documentan 10 variantes
-(mitad patogénicas, mitad benignas según ClinVar); aciertos: **9/10**.
+El servicio recibe una variante `(chrom, pos, ref, alt)`, la anota -consecuencia
+funcional, scores in silico y frecuencia poblacional- y devuelve la predicción de
+patogenicidad con su probabilidad. Estas 10 variantes, mitad patogénicas y mitad
+benignas según ClinVar, no se vieron en entrenamiento; aciertos: **9/10**.
+
+Es una prueba de integración extremo a extremo del servicio, no una estimación de
+rendimiento: para eso está el PR AUC sobre el conjunto de evaluación completo.
 
 | variante | gen | consecuencia | clnsig_real | clase_real | prediccion | prob_patogenica | acierto |
 |:----------------|:---------|:-----------------------------------|:------------------|:-------------|:-------------|------------------:|:----------|
@@ -18,17 +21,13 @@ El servicio recibe una variante `(chrom, pos, ref, alt)`, la **anota**
 | 3-193363248-C-T | ATP13A5 | SO:0001819|synonymous_variant | Benign | Benigna | Benigna | 0 | ✓ |
 | 2-135130628-A-G | RAB3GAP1 | SO:0001819|synonymous_variant | Likely_benign | Benigna | Benigna | 0.0002 | ✓ |
 
+`clnsig_real` es la etiqueta de referencia y no se pasa al modelo; sirve solo para
+verificar el acierto. La respuesta completa de cada variante está en
+`reports/serving/example_variants.json`.
+
 ## Reproducir
 ```bash
-make serve # levanta el servicio REST en:8000
+make serve
 curl -X POST localhost:8000/predict -H 'Content-Type: application/json' \
      -d '{"chrom":"3","pos":11825913,"ref":"G","alt":"T"}'
 ```
-
-La respuesta completa (entrada + salida) de cada variante está en
-`reports/serving/example_variants.json`.
-
-> Nota: `clnsig_real` es la etiqueta de ClinVar (verdad de referencia) y **no** se
-> pasa al modelo; sirve solo para verificar el acierto. Si los datos provienen del
-> generador offline (ADR 005), estas predicciones validan el pipeline, no tienen
-> valor clínico.

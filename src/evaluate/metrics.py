@@ -1,7 +1,7 @@
-"""Métricas de evaluación del clasificador de patogenicidad.
+"""Métricas compartidas por los tres modelos.
 
-Se priorizan métricas robustas al (posible) desbalanceo de clases, conforme a
-las convenciones del proyecto: **PR AUC, F1 y ROC AUC**, más la matriz de confusión.
+PR AUC, F1 y ROC AUC en vez de exactitud, por el desbalance de clases del dominio,
+más intervalos bootstrap, métricas de cola, calibración y curvas completas.
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ from sklearn.metrics import (  # noqa: E402
 
 
 def compute_metrics(y_true, y_prob, threshold: float = 0.5) -> dict[str, float]:
-    """Calcula el panel de métricas del proyecto a partir de probabilidades."""
+    """Panel de métricas del proyecto a partir de probabilidades."""
     y_true = np.asarray(y_true, dtype=int)
     y_prob = np.asarray(y_prob, dtype=float)
     y_pred = (y_prob >= threshold).astype(int)
@@ -41,16 +41,11 @@ def compute_metrics(y_true, y_prob, threshold: float = 0.5) -> dict[str, float]:
 
 def bootstrap_pr_auc_ci(y_true, y_prob, n_boot: int = 1000, ci: float = 0.95,
                         seed: int = 42) -> dict[str, float]:
-    """Intervalo de confianza del PR AUC por remuestreo bootstrap del holdout.
+    """IC del PR AUC por remuestreo bootstrap del propio holdout.
 
-    Sin necesidad de una release adicional: remuestrea con reemplazo el
-    propio conjunto de evaluación `n_boot` veces y recalcula el PR AUC en
-    cada remuestreo. `compute_metrics` (y, con ella, la selección del mejor
-    algoritmo en `train.py`) solo devuelve un valor puntual; con un holdout
-    de tamaño moderado, diferencias pequeñas entre modelos (p. ej. gradient
-    boosting vs. random forest) pueden no ser distinguibles del ruido de
-    muestreo. Este intervalo permite afirmarlo con rigor en vez de asumirlo
-    (revisión técnica del proyecto).
+    Con un holdout de tamaño moderado, diferencias pequeñas entre modelos
+    pueden no ser distinguibles del ruido de muestreo; el estimador puntual de
+    `compute_metrics` no permite saberlo.
     """
     y_true = np.asarray(y_true, dtype=int)
     y_prob = np.asarray(y_prob, dtype=float)
@@ -60,7 +55,7 @@ def bootstrap_pr_auc_ci(y_true, y_prob, n_boot: int = 1000, ci: float = 0.95,
     for i in range(n_boot):
         idx = rng.integers(0, n, size=n)
         yt = y_true[idx]
-        if yt.min() == yt.max():  # remuestreo degenerado (una sola clase): PR AUC no definido
+        if yt.min() == yt.max():  # una sola clase: PR AUC no definido
             continue
         scores[i] = average_precision_score(yt, y_prob[idx])
     valid = scores[~np.isnan(scores)]
@@ -74,14 +69,7 @@ def bootstrap_pr_auc_ci(y_true, y_prob, n_boot: int = 1000, ci: float = 0.95,
 
 def bootstrap_roc_auc_ci(y_true, y_prob, n_boot: int = 1000, ci: float = 0.95,
                          seed: int = 42) -> dict[str, float]:
-    """Intervalo de confianza del ROC AUC por remuestreo bootstrap del holdout.
-
-    Revisión posterior del proyecto: el ROC AUC del modelo de reclasificación se citaba
-    como
-    estimador puntual sin incertidumbre pese al reducido número de positivos
-    en el holdout, mientras que el PR AUC sí llevaba IC desde antes. Mismo
-    procedimiento que `bootstrap_pr_auc_ci`, aplicado a ROC AUC.
-    """
+    """IC del ROC AUC, mismo procedimiento que `bootstrap_pr_auc_ci`."""
     y_true = np.asarray(y_true, dtype=int)
     y_prob = np.asarray(y_prob, dtype=float)
     n = len(y_true)
@@ -90,7 +78,7 @@ def bootstrap_roc_auc_ci(y_true, y_prob, n_boot: int = 1000, ci: float = 0.95,
     for i in range(n_boot):
         idx = rng.integers(0, n, size=n)
         yt = y_true[idx]
-        if yt.min() == yt.max():  # remuestreo degenerado (una sola clase): ROC AUC no definido
+        if yt.min() == yt.max():  # una sola clase: ROC AUC no definido
             continue
         scores[i] = roc_auc_score(yt, y_prob[idx])
     valid = scores[~np.isnan(scores)]
@@ -104,14 +92,11 @@ def bootstrap_roc_auc_ci(y_true, y_prob, n_boot: int = 1000, ci: float = 0.95,
 
 def bootstrap_pr_auc_diff_ci(y_true, y_prob_a, y_prob_b, n_boot: int = 1000, ci: float = 0.95,
                              seed: int = 42) -> dict[str, float]:
-    """IC bootstrap de la DIFERENCIA de PR AUC entre dos puntuaciones sobre el mismo conjunto.
+    """IC bootstrap pareado de la diferencia de PR AUC entre dos puntuaciones.
 
-    Revisión posterior del proyecto: comparar dos PR-AUC puntuales (p. ej.
-    el modelo ensemble frente a CADD solo) sin cuantificar si la diferencia es
-    distinguible del ruido de muestreo no basta para decir "competitivo con".
-    Remuestrea las MISMAS filas para `y_prob_a` e `y_prob_b` en cada iteración
-    (bootstrap pareado): si el IC de la diferencia no cruza el cero, la
-    diferencia es estadísticamente distinguible con esta muestra.
+    Remuestrea las mismas filas para ambas puntuaciones en cada iteración: si el
+    intervalo de la diferencia no cruza cero, la diferencia es distinguible con esta
+    muestra. Comparar dos estimadores puntuales no permite afirmarlo.
     """
     y_true = np.asarray(y_true, dtype=int)
     y_prob_a = np.asarray(y_prob_a, dtype=float)
@@ -139,15 +124,12 @@ def bootstrap_pr_auc_diff_ci(y_true, y_prob_a, y_prob_b, n_boot: int = 1000, ci:
 
 def precision_recall_lift_at_k(y_true, y_prob, ks: tuple[int, ...] = (10, 20, 50, 100)
                                ) -> dict[str, float]:
-    """precision@k / recall@k / lift@k: métricas naturales para una cola de revisión.
+    """precision@k, recall@k y lift@k: las métricas de una cola de revisión.
 
-    Revisión posterior del proyecto: con una prevalencia baja (p. ej. el
-    1, 4 % de VUS reclasificadas en el modelo de reclasificación), el PR AUC/ROC AUC
-    agregados no dicen
-    cuántos aciertos reales contiene la cabeza de la lista ordenada, que es
-    justo lo que le importa a un revisor que solo llega a mirar las primeras
-    k variantes. `lift@k` compara la precisión en la cabeza frente a la
-    prevalencia global (1.0 = igual que ordenar al azar).
+    Con prevalencia baja, el PR AUC agregado no dice cuántos aciertos hay en la
+    cabeza de la lista, que es lo único que ve un revisor que solo llega a mirar las
+    primeras k variantes. `lift@k` compara esa precisión con la prevalencia global:
+    1.0 equivale a ordenar al azar.
     """
     y_true = np.asarray(y_true, dtype=int)
     y_prob = np.asarray(y_prob, dtype=float)
@@ -172,14 +154,12 @@ def precision_recall_lift_at_k(y_true, y_prob, ks: tuple[int, ...] = (10, 20, 50
 
 
 def calibration_report(y_true, y_prob, n_bins: int = 10) -> dict:
-    """Brier score + tabla de calibración por deciles de probabilidad predicha.
+    """Brier score y tabla de calibración por bins de probabilidad predicha.
 
-    Revisión posterior del proyecto: el proyecto habla de "probabilidad
-    de reclasificación" sin haber estudiado nunca si esa probabilidad está
-    calibrada (si de las VUS con score ~0.3, de verdad se reclasifica
-    alrededor del 30 %). Con pocos positivos el Brier score global puede ser
-    engañosamente bajo por la propia prevalencia baja; la tabla por bins
-    hace explícito dónde hay pocos datos para confiar en la calibración.
+    El sistema presenta sus salidas como probabilidades, así que conviene saber si
+    de las variantes con score ~0.3 se resuelve de verdad alrededor del 30 %. Con
+    pocos positivos el Brier global puede ser engañosamente bajo por la propia
+    prevalencia; la tabla por bins muestra dónde faltan datos para estimarlo.
     """
     y_true = np.asarray(y_true, dtype=int)
     y_prob = np.asarray(y_prob, dtype=float)
@@ -200,11 +180,11 @@ def calibration_report(y_true, y_prob, n_bins: int = 10) -> dict:
 
 
 def export_pr_curve(y_true, y_prob, path: Path) -> Path:
-    """Exporta la curva precisión-cobertura completa a CSV (revisión posterior del proyecto)."""
+    """Exporta la curva precisión-cobertura completa a CSV."""
     precision, recall, thresholds = precision_recall_curve(y_true, y_prob)
     path.parent.mkdir(parents=True, exist_ok=True)
-    # `thresholds` tiene un elemento menos que precision/recall (sklearn no define
-    # un umbral para el último punto, recall=0); se rellena con NaN para alinear.
+    # `thresholds` trae un elemento menos: sklearn no define umbral para el último
+    # punto (recall=0). Se rellena con NaN para alinear las tres columnas.
     thr = np.append(thresholds, np.nan)
     import pandas as pd
     pd.DataFrame({"precision": precision, "recall": recall, "threshold": thr}).to_csv(
@@ -213,7 +193,7 @@ def export_pr_curve(y_true, y_prob, path: Path) -> Path:
 
 
 def export_roc_curve(y_true, y_prob, path: Path) -> Path:
-    """Exporta la curva ROC completa a CSV (revisión posterior del proyecto)."""
+    """Exporta la curva ROC completa a CSV."""
     fpr, tpr, thresholds = roc_curve(y_true, y_prob)
     path.parent.mkdir(parents=True, exist_ok=True)
     import pandas as pd
@@ -226,12 +206,9 @@ def save_confusion_matrix(y_true, y_prob, path: Path, threshold: float = 0.5,
                           labels: tuple[str, str] = ("Benigna", "Patogénica")) -> Path:
     """Guarda la matriz de confusión como PNG y devuelve la ruta.
 
-    `labels` por defecto asume una tarea de patogenicidad (Benigna/Patogénica);
-    otras tareas binarias (p. ej. reclasificación sí/no) deben pasar sus
-    propias etiquetas explícitas (una revisión posterior del proyecto: la
-    matriz del modelo de reclasificación usaba por defecto "Benigna", "Patogénica" para
-    una tarea que
-    en realidad es "No reclasificada", "Reclasificada", una tarea distinta).
+    `labels` asume por defecto la tarea de patogenicidad; el resto de tareas binarias
+    deben pasar las suyas, o la figura etiqueta como "Patogénica"/"Benigna" lo que en
+    realidad es "Reclasificada"/"No reclasificada".
     """
     y_true = np.asarray(y_true, dtype=int)
     y_pred = (np.asarray(y_prob, dtype=float) >= threshold).astype(int)

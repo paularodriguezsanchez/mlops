@@ -66,17 +66,15 @@ def test_dashboard_url_por_defecto_es_test(tmp_path, monkeypatch):
 
 
 def test_dashboard_split_no_permitido_devuelve_404(tmp_path, monkeypatch):
-    """la revisión interna del proyecto: `split` debe validarse contra {"train","test"},
-    no confiar solo en que el converter de Flask excluya '/'."""
+    """`split` se valida contra una lista permitida, no solo contra el converter."""
     client = _client(tmp_path, monkeypatch)
     resp = client.get("/dashboard/produccion")
     assert resp.status_code == 404
 
 
 def test_dashboard_indica_criterio_de_orden_segun_ranking_score(tmp_path, monkeypatch):
-    """Cabecera dinámica: menciona el objetivo de ranking si los registros traen `ranking_score`, si
-    no, el modelo de patogenicidad.
-    """
+    """La cabecera declara el criterio real: ranking si hay `ranking_score`, si no,
+    probabilidad de patogenicidad."""
     out_dir = tmp_path / "reports" / "serving"
     out_dir.mkdir(parents=True)
     sin_ranking = [{"chrom": "1", "pos": 1, "ref": "A", "alt": "G", "gene": "G1",
@@ -92,7 +90,7 @@ def test_dashboard_indica_criterio_de_orden_segun_ranking_score(tmp_path, monkey
     (out_dir / "vus_reports_test.json").write_text(
         json.dumps(con_ranking, ensure_ascii=False), encoding="utf-8")
     html_con = client.get("/dashboard/test").data.decode("utf-8")
-    assert "modelo de ranking dedicado" in html_con
+    assert "score del modelo de ranking" in html_con
 
 
 def test_dashboard_avisa_si_reclasificacion_no_es_fiable(tmp_path, monkeypatch):

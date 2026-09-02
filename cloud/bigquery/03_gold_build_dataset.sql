@@ -1,4 +1,4 @@
--- Fase II (diseño, no ejecutado). Capa GOLD: equivalente SQL de
+-- Extensión a GCP: diseño, no ejecutado. Capa GOLD: equivalente SQL de
 -- `src/features/build_dataset.py` — misma regla de binarización del target
 -- (config.yaml: target.positive_labels / negative_labels) y misma separación
 -- de VUS reservadas (ADR 006), pero como vistas SQL en vez de ficheros parquet.

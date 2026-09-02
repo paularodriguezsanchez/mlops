@@ -1,8 +1,7 @@
-"""Contrato de datos de variantes anotadas (capa SILVER).
+"""Contrato de datos de la capa SILVER.
 
-Define el esquema esperado y una validación explícita. Cumplir un contrato de
-datos es un requisito de calidad del TFM (T3): cualquier cambio de esquema
-aguas arriba falla de forma ruidosa en vez de propagar datos corruptos.
+Esquema esperado y validación activa: un cambio aguas arriba falla de forma ruidosa
+en vez de propagar datos corruptos al modelado.
 """
 from __future__ import annotations
 
@@ -19,12 +18,9 @@ KEY_COLUMNS = ["chrom", "pos", "ref", "alt"]
 
 # Features numéricas con su rango plausible (validación de contrato de datos).
 NUMERIC_RANGES = {
-    # CADD phred (Rentzsch et al. 2019, GRCh38 v1.6+): el escalado phred de
-    # -10*log10(rango/total) permite valores >60 para las variantes más extremas
-    # (confirmado con datos reales 2026-08-01: nonsense en TTN/NPHP3 hasta 73).
-    # El límite anterior (60) venía calibrado sobre el techo arbitrario del
-    # generador sintético (`np.clip(..., 0, 45)`, ADR 005), no sobre el rango
-    # real de la métrica — ver la revisión interna del proyecto.
+    # El escalado phred de CADD admite valores por encima de 60 en las variantes
+    # más extremas (nonsense reales de ClinVar llegan a 73). El límite anterior
+    # estaba calibrado sobre el techo arbitrario del generador sintético.
     "cadd_phred": (0.0, 99.0),
     "sift_score": (0.0, 1.0),
     "polyphen_score": (0.0, 1.0),
@@ -37,22 +33,15 @@ NUMERIC_RANGES = {
 
 CATEGORICAL_COLUMNS = ["gene", "consequence", "clnsig"]
 
-# Estado de revisión de ClinVar (CLNREVSTAT del VCF), y su traducción a la
-# escala oficial de "gold stars" (0-4, https://www.ncbi.nlm.nih.gov/clinvar/
-# docs/review_status/). Añadido en ADR 008 como feature del modelo de reclasificación
-# (potencial de
-# reclasificación): a diferencia de CADD/REVEL/AlphaMissense/gnomAD (anotadas
-# "hoy" vía myvariant.info, ver leakage temporal en ADR 008), `review_status`
-# se lee directamente del VCF fechado de cada release, así que su valor en la
-# release t0 es el que existía realmente en t0 -- temporalmente seguro.
+# CLNREVSTAT del VCF traducido a la escala oficial de estrellas de ClinVar (0-4).
+# Feature del modelo de reclasificación (ADR 008): se lee del VCF fechado, así que su
+# valor en t0 es el que existía en t0.
 #
-# ClinVar cambió su vocabulario de CLNREVSTAT entre las dos releases
-# (verificado por inspección directa de ambos VCF, no supuesto): 2023-12 usa
-# "…_interpretations"/"no_assertion_provided", 2025-06 usa
-# "…_classifications"/"no_classification_provided". Se mapean ambos
-# vocabularios a la misma escala de estrellas; un valor no reconocido (p. ej.
-# una futura release con terminología nueva otra vez) queda NaN documentado,
-# no un supuesto silencioso -- mismo criterio que el resto del contrato.
+# ClinVar cambió el vocabulario de este campo entre las dos releases usadas
+# (verificado inspeccionando ambos VCF): "..._interpretations" pasa a
+# "..._classifications", y "no_assertion_provided" a "no_classification_provided".
+# Mapeo ambos vocabularios a la misma escala; un valor no reconocido queda NaN, no
+# un supuesto silencioso.
 REVIEW_STATUS_STARS: dict[str, int] = {
     "no_assertion_provided": 0,
     "no_classification_provided": 0,
@@ -134,7 +123,7 @@ def validate_annotated(df: pd.DataFrame, *, strict: bool = True) -> ValidationRe
     if (df["ref"] == df["alt"]).any():
         errors.append("hay variantes con ref == alt")
 
-    # rangos numéricos (ignorando NaN, que es válido en scores dbNSFP ausentes)
+    # Rangos numéricos, ignorando NaN: un score ausente es válido.
     for col, (lo, hi) in NUMERIC_RANGES.items():
         s = pd.to_numeric(df[col], errors="coerce")
         out_of_range = ((s < lo) | (s > hi)).sum()

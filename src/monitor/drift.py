@@ -1,13 +1,10 @@
-"""Detección de drift entre dos poblaciones de variantes.
+"""Motor estadístico de detección de drift entre dos poblaciones de variantes.
 
-Motor estadístico propio (sin dependencias pesadas), reutilizable por el informe
-de monitorización. Detecta:
-  * Drift de features numéricas: test KS de Kolmogorov y Smirnov + PSI.
-  * Drift de features categóricas (consecuencia): PSI sobre categorías.
-  * Drift de etiqueta/predicción: cambio de prevalencia (concept drift).
+Por columna numérica, contraste de Kolmogorov-Smirnov y PSI; por categórica, solo
+PSI. Basta que se cumpla una de las dos condiciones para marcar drift.
 
-Regla de alerta (config `monitor.drift_threshold`): se dispara si la **proporción
-de columnas con drift** supera el umbral.
+La alerta agregada se dispara si la proporción de columnas con drift supera
+`monitor.drift_threshold`.
 """
 from __future__ import annotations
 

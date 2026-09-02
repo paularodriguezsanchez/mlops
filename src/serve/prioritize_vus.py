@@ -1,24 +1,14 @@
-"""Priorización de VUS por riesgo estimado de patogenicidad (ADR 006).
+"""Priorización de las VUS reservadas por riesgo estimado (ADR 006).
 
-Implementa de forma concreta la idea registrada en ADR 006 / la priorización de VUS: el modelo NO
-emite un veredicto clínico ni sustituye la curación manual; puntúa cada VUS
-reservada (variante sin significado clínico resuelto en ClinVar) y esta tabla
-las ordena de mayor a menor prioridad. El objetivo es dirigir y agilizar la
-investigación posterior (el revisor prioriza las de arriba), no reemplazarla.
+Puntúa cada VUS sin veredicto en ClinVar y las ordena de mayor a menor prioridad,
+para dirigir la revisión manual, no para sustituirla.
 
-Criterio de orden: si el modelo de ranking (`src, train, train_ranking.py`, LightGBM `lambdarank`)
-está entrenado, el orden lo decide su score — es el
-entregable real del proyecto (un orden de prioridad, no solo una probabilidad
-de clasificación aislada, ver ADR 007 §5.3) y evita el desajuste de que la priorización de VUS
-muestre un orden distinto del que el objetivo de ranking fue entrenado y evaluado (NDCG@k) para
-producir. Si el objetivo de ranking no está entrenado todavía (`make train-ranking`), se cae de
-forma explícita a ordenar por la probabilidad de patogenicidad del modelo de patogenicidad — la
-probabilidad de patogenicidad se calcula y se muestra siempre, se use o no
-para ordenar.
+El orden lo decide el score del modelo de ranking cuando está entrenado: es el
+entregable real del proyecto, y evita que la lista servida difiera del orden para
+el que ese modelo se entrenó y evaluó. Si no está entrenado, revierte a la
+probabilidad de patogenicidad, que se calcula y se muestra siempre.
 
-Uso:
-    python -m src.serve.prioritize_vus # release de test (VUS más recientes)
-    python -m src.serve.prioritize_vus --split train --top-n 30
+    python -m src.serve.prioritize_vus [--split train] [--top-n 30]
 """
 from __future__ import annotations
 
@@ -38,11 +28,9 @@ _RANKING_MODEL_DIR = PROJECT_ROOT / "models" / "ranking_model"
 def load_ranking_model() -> tuple[object, object] | tuple[None, None]:
     """Carga el booster de ranking y el preprocesador con el que se entrenó.
 
-    Degrada a `(None, None)` si `models/ranking_model` no existe o no se pudo
-    cargar (mismo patrón de degradación explícita que el resto del proyecto,
-    ver ADR 005): `rank_vus` cae entonces a ordenar por la probabilidad de
-    patogenicidad del modelo de patogenicidad. Compartida por `prioritize_vus.py` y
-    `vus_reports.py` para que ambos usen siempre el mismo criterio.
+    Degrada a `(None, None)` si el modelo no existe o no se puede cargar, y entonces
+    `rank_vus` ordena por probabilidad de patogenicidad. La comparten
+    `prioritize_vus.py` y `vus_reports.py` para no divergir en el criterio.
     """
     booster_path = _RANKING_MODEL_DIR / "lambdarank.txt"
     preprocessor_path = _RANKING_MODEL_DIR / "preprocessor.joblib"
@@ -67,11 +55,10 @@ def rank_vus(
     ranking_model: object | None = None,
     ranking_preprocessor: object | None = None,
 ) -> pd.DataFrame:
-    """Puntúa y ordena VUS por prioridad (mayor primero). Pura, sin I/O.
+    """Puntúa y ordena las VUS de mayor a menor prioridad. Función pura, sin I/O.
 
-    Con `ranking_model`/`ranking_preprocessor` (ver `load_ranking_model`),
-    ordena por `ranking_score`. Sin ellos (por defecto), ordena por
-    `probabilidad_patogenica`, como antes de integrar el objetivo de ranking.
+    Con modelo de ranking ordena por `ranking_score`; sin él, por
+    `probabilidad_patogenica`.
     """
     probs = predictor.predict_batch(vus)
     out = vus.assign(probabilidad_patogenica=probs)
@@ -112,29 +99,27 @@ def _write_report(
     top: pd.DataFrame, split: str, n_total: int, csv_path: Path, using_ranking: bool,
 ) -> None:
     criterio = (
-        "el score del modelo de ranking dedicado (LightGBM `lambdarank`, entrenado "
-        "para optimizar directamente el orden de prioridad y evaluado con NDCG@k — ver "
-        "ADR 007 §5.3, `reports, training, ranking_metrics.csv`). La probabilidad de "
-        "patogenicidad del modelo de patogenicidad se muestra también, como referencia adicional."
+        "el score del modelo de ranking (LightGBM `lambdarank`, entrenado para optimizar "
+        "directamente el orden y evaluado con NDCG@k; ver ADR 007 §5.3 y "
+        "`reports/training/ranking_metrics.csv`). La probabilidad de patogenicidad se "
+        "muestra como referencia adicional."
         if using_ranking else
-        "la probabilidad de patogenicidad (el modelo de ranking no está "
-        "entrenado todavía; ejecuta `make train-ranking` para que la "
-        "priorización use ese criterio)."
+        "la probabilidad de patogenicidad: el modelo de ranking no está entrenado "
+        "todavía (`make train-ranking`)."
     )
     doc = PROJECT_ROOT / "docs" / "vus_priorizadas.md"
-    doc.write_text(f"""# Priorización de VUS por riesgo estimado: release {split}
+    doc.write_text(f"""# Priorización de VUS: release {split}
 
-**Esto no es un veredicto clínico ni sustituye la curación manual.** Es una
-ayuda para dirigir y agilizar la investigación posterior que un revisor
-tendría que hacer de todos modos, apoyándose en el conocimiento previo de
-ClinVar/gnomAD/CADD/REVEL/AlphaMissense ya construido. El criterio de
-priorización: revisar antes las de arriba, ordenadas por {criterio}
+No es un veredicto clínico ni sustituye la curación manual: dirige la revisión que
+un experto haría de todos modos, apoyándose en el conocimiento ya acumulado en
+ClinVar, gnomAD, CADD, REVEL y AlphaMissense. Se revisan antes las de arriba,
+ordenadas por {criterio}
 
 {n_total} VUS reservadas en total. Top {len(top)} por prioridad:
 
 {top.to_markdown(index=False)}
 
-Lista completa (todas las VUS, ordenadas): `{csv_path.relative_to(PROJECT_ROOT).as_posix}`.
+Lista completa (todas las VUS, ordenadas): `{csv_path.relative_to(PROJECT_ROOT).as_posix()}`.
 
 ## Reproducir
 ```bash

@@ -1,7 +1,7 @@
 services:
   mlflow:
     build:
-      context:.
+      context: .
       dockerfile: docker/mlflow.Dockerfile
     container_name: tfm_mlflow
     ports:
@@ -12,7 +12,7 @@ services:
 
   app:
     build:
-      context:.
+      context: .
       dockerfile: docker/app.Dockerfile
     container_name: tfm_app
     depends_on:
@@ -20,14 +20,14 @@ services:
     environment:
       MLFLOW_TRACKING_URI: http://mlflow:5000
     volumes:
-      -./:/app
+      - ./:/app
     working_dir: /app
-    # Se mantiene vivo para ejecutar comandos (make...) dentro del contenedor.
+    # Se mantiene vivo para ejecutar comandos (make ...) dentro del contenedor.
     command: ["sleep", "infinity"]
 
   serve:
     build:
-      context:.
+      context: .
       dockerfile: docker/app.Dockerfile
     container_name: tfm_serve
     depends_on:
@@ -35,11 +35,11 @@ services:
     environment:
       MLFLOW_TRACKING_URI: http://mlflow:5000
     volumes:
-      -./:/app
+      - ./:/app
     working_dir: /app
     ports:
       - "8000:8000"
-    # Servicio REST de inferencia [OE4]. Requiere modelo ya entrenado
+    # Servicio REST de inferencia. Requiere un modelo ya entrenado
     # (models/best_model, ver `make train`) montado desde el host.
     command: ["gunicorn", "--bind", "0.0.0.0:8000", "src.serve.app:app"]
     restart: unless-stopped

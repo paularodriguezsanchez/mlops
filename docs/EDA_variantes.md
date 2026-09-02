@@ -1,42 +1,40 @@
-# EDA: Variantes anotadas (Fase I · bloque de trabajo)
+# Análisis exploratorio de las variantes anotadas
 
-Resumen de los hallazgos del análisis exploratorio (`notebooks/01_eda_variantes.ipynb`).
-Insumo directo del capítulo de Metodología/Resultados de la memoria.
+Resumen de `notebooks/01_eda_variantes.ipynb`, sobre la ejecución canónica del pipeline.
 
 ## Volumen y balance del target
-| Split | Release | Etiquetadas | Positivas (patogénicas) | Prevalencia | VUS reservadas |
-|-------|---------|-------------|--------------------------|-------------|-----------------|
-| train | 2023-12 | 3.224 | 1.860 | 0,577 | 2.776 |
-| test | 2025-06 | 4.044 | 2.310 | 0,571 | 3.156 |
 
-El target queda binarizado según la configuración del proyecto; las VUS no se descartan sino que se
-reservan como conjunto de inferencia realista.
+| Partición | Release | Etiquetadas | Patogénicas | Prevalencia | VUS reservadas | Excluidas |
+|---|---|---:|---:|---:|---:|---:|
+| train | 2023-12 | 3504 | 526 | 0,150 | 4056 | 437 |
+| test | 2025-06 | 5221 | 717 | 0,137 | 6042 | 734 |
+
+La clase positiva es minoritaria, lo que fija PR AUC como métrica principal en todo el proyecto. Las VUS no se descartan: se reservan como conjunto de inferencia (ADR 006). La taxonomía completa `CLNSIG` -> etiqueta está en `datasheet.md`.
 
 ![Balance del target](figuras/eda_target_balance.png)
 
 ## Separabilidad de las features
-CADD, REVEL y la frecuencia gnomAD (en log) separan las clases, aunque con
-**solapamiento** (error de Bayes realista): hay señal aprendible con algoritmos
-estándar, pero no es un problema trivialmente perfecto.
+
+CADD, REVEL y la frecuencia de gnomAD en escala logarítmica separan las clases, pero con solapamiento apreciable. Ese solapamiento no es un defecto de los datos: es el error de Bayes que también limita a los predictores reales de la literatura, y confirma que el problema es aprendible sin ser trivial.
 
 ![Separabilidad](figuras/eda_feature_separability.png)
 
-Las consecuencias truncantes (`stop_gained`, `frameshift_variant`, `splice_*`)
-concentran patogenicidad; las sinónimas concentran benignidad.
+Las consecuencias truncantes (`stop_gained`, `frameshift_variant`, `splice_*`) concentran patogenicidad; las sinónimas, benignidad.
 
 ![Consecuencia](figuras/eda_consequence.png)
 
-## Concept drift temporal (ClinVar 2023-12 → 2025-06)
-* Variantes compartidas entre releases: **6.000**.
-* **VUS reclasificadas** en la release nueva: **166** (84 → *Likely_pathogenic*, 82 → *Likely_benign*).
-* **Variantes nuevas** solo presentes en 2025-06: **1.200**.
+## Deriva entre releases (2023-12 -> 2025-06)
 
-Este drift es **real, no simulado trivialmente**: reproduce el fenómeno clínico de
-resolución de VUS y de incorporación de nuevas variantes entre releases de ClinVar.
-Justifica la monitorización y el reentrenamiento del bloque de trabajo (OE5).
+* Variantes compartidas entre ambas releases: **7997**.
+* VUS estrictas reclasificadas a un veredicto resuelto: **55** (0,69 % de las compartidas).
+* Variantes presentes solo en la release nueva: **4000**.
 
-![Drift CLNSIG](figuras/eda_clnsig_drift.png)
+Es deriva real, no simulada: reproduce el fenómeno clínico de resolución progresiva de VUS entre publicaciones de ClinVar, y es la señal que sostiene tanto la monitorización como el entrenamiento del modelo de potencial de reclasificación.
 
-## Implicaciones para el modelado * Métricas apropiadas para posible desbalanceo: **PR AUC, F1, ROC AUC** + matriz de confusión.
-* Imputación necesaria: SIFT/PolyPhen/REVEL son NaN fuera de *missense* (como en dbNSFP real).
-* El split temporal train(2023-12)/test(2025-06) permite medir degradación realista.
+![Deriva de CLNSIG](figuras/eda_clnsig_drift.png)
+
+## Implicaciones para el modelado
+
+* Métricas robustas al desbalance: PR AUC, F1 y ROC AUC, además de la matriz de confusión; nunca exactitud.
+* Imputación obligatoria: SIFT, PolyPhen y REVEL son nulos fuera de missense, y con datos reales también CADD, GERP y phyloP presentan una tasa alta de nulos. La ausencia se conserva como indicador explícito, no se disuelve en la mediana.
+* La partición temporal permite medir degradación realista, pero exige filtrar las variantes que persisten entre releases antes de evaluar.

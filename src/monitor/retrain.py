@@ -1,15 +1,10 @@
-"""Flujo de reentrenamiento disparado por alerta de drift [esa etapa, OE5].
+"""Reentrenamiento gobernado, disparado por alerta de deriva (ADR 001).
 
-Gobernanza (ADR 001): en un contexto clínico el reentrenamiento **no es
-automático**. La monitorización evalúa el drift y EMITE UNA RECOMENDACIÓN; un
-humano (revisor clínico/ML) aprueba antes de promover un nuevo modelo. Por eso:
+En un contexto clínico promover un modelo automáticamente sería inaceptable: el
+sistema recomienda y una persona aprueba. Sin `--execute` solo recomienda.
 
-  * `python -m src.monitor.retrain` → evalúa y RECOMIENDA (dry-run).
-  * `python -m src.monitor.retrain --execute` → aprueba y lanza el reentrenamiento.
-
-El reentrenamiento reutiliza `src.train.train.run`, que registra el nuevo modelo
-en MLflow y lo deja en stage **Staging** (no Production): la promoción a producción
-es un segundo gate humano.
+El modelo reentrenado entra en stage Staging, nunca directo a Production: la
+promoción es un segundo gate humano, independiente de este módulo.
 """
 from __future__ import annotations
 
@@ -21,16 +16,16 @@ from src.monitor.drift_report import run as run_drift
 def decide(summary: dict) -> dict:
     """Traduce el resumen de drift en una recomendación accionable."""
     cov = summary["covariate_drift"]["alert"]
-    concept = summary["concept_drift"]["alert"]
+    reclass = summary["reclassification_drift"]["alert"]
     reasons = []
     if cov:
         reasons.append("drift de covariables por encima del umbral")
-    if concept:
-        n = summary["concept_drift"]["n_reclassified"]
-        acc = summary["concept_drift"].get("model_accuracy_on_reclassified")
-        reasons.append(f"concept drift: {n} variantes reclasificadas"
+    if reclass:
+        n = summary["reclassification_drift"]["n_reclassified"]
+        acc = summary["reclassification_drift"].get("model_accuracy_on_reclassified")
+        reasons.append(f"deriva de reclasificación: {n} variantes reclasificadas"
                        + (f", acierto del modelo en ellas={acc}" if acc is not None else ""))
-    return {"retrain_recommended": bool(cov or concept), "reasons": reasons}
+    return {"retrain_recommended": bool(cov or reclass), "reasons": reasons}
 
 
 def run(execute: bool = False) -> dict:
@@ -46,8 +41,8 @@ def run(execute: bool = False) -> dict:
         print(f"  * {r}")
 
     if not execute:
-        print("\n[dry-run] No se reentrena. Ejecuta con --execute para aprobar "
-              "el reentrenamiento (gate humano, gobernanza clínica).")
+        print("\n[simulación] No se reentrena. Ejecuta con --execute para aprobar "
+              "el reentrenamiento.")
         return {"decision": decision, "retrained": False}
 
     print("\n[aprobado] Lanzando reentrenamiento (nuevo modelo -> stage Staging)...")
@@ -57,9 +52,9 @@ def run(execute: bool = False) -> dict:
 
 
 def _parse_args(argv=None):
-    p = argparse.ArgumentParser(description="Flujo de reentrenamiento por drift.")
+    p = argparse.ArgumentParser(description="Reentrenamiento gobernado por deriva.")
     p.add_argument("--execute", action="store_true",
-                   help="Aprueba y ejecuta el reentrenamiento (por defecto: dry-run).")
+                   help="Aprueba y ejecuta el reentrenamiento; por defecto solo recomienda.")
     return p.parse_args(argv)
 
 

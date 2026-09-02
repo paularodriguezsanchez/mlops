@@ -1,12 +1,9 @@
-"""Captura de procedencia de la ejecución canónica.
+"""Procedencia de la ejecución canónica, en un único fichero.
 
-Registra, en un único fichero, lo que hasta ahora solo vivía disperso o no se
-registraba en absoluto: commit de git, hash DVC de los datos crudos, IDs de
-los runs de MLflow más recientes de cada modelo, y timestamp de la anotación
-real. Sin esto, una cifra citada en la memoria no se podía trazar hasta el
-experimento exacto que la produjo salvo remitiendo al repositorio.
+Commit de git, hash DVC de los datos crudos, identificadores de run de MLflow de
+cada modelo y marca de tiempo de la anotación. Sin esto, una cifra citada en la
+memoria no se puede trazar hasta el experimento exacto que la produjo.
 
-Uso:
     python -m src.evaluate.capture_provenance
 """
 from __future__ import annotations

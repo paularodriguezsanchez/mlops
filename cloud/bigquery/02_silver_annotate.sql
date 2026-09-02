@@ -1,4 +1,4 @@
--- Fase II (diseño, no ejecutado). Capa SILVER: variante x features, equivalente
+-- Extensión a GCP: diseño, no ejecutado. Capa SILVER: variante x features, equivalente
 -- a `src/annotate/annotate.py` / `src/annotate/multi_source.py`, pero como join
 -- SQL contra fuentes ya alojadas en BigQuery en vez de consultas HTTP a
 -- myvariant.info. Reproduce la paridad de columnas con la capa SILVER local
@@ -10,7 +10,7 @@
 -- en BigQuery; en un despliegue real habría que cargar sus ficheros precalculados
 -- a Cloud Storage (igual que se hace hoy vía myvariant.info en local) y crear
 -- tablas externas equivalentes — no reimplementadas aquí porque exceden el
--- alcance de "diseño documentado" de la Opción A.
+-- alcance de diseño documentado, sin ejecución.
 
 CREATE SCHEMA IF NOT EXISTS `tfm_variantes.silver`
   OPTIONS (location = 'EU', description = 'Capa SILVER: variantes anotadas por release');

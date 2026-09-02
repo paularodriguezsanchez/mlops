@@ -1,6 +1,6 @@
--- Fase II (diseño, no ejecutado — Opción A, ver docs/FASE_II_DISENO_GCP.md).
+-- Extensión a GCP: diseño, no ejecutado (docs/FASE_II_DISENO_GCP.md).
 -- Capa RAW: variantes de ClinVar cargadas desde los mismos VCF fechados que usa
--- la Fase I local (data/raw/clinvar_{release}.vcf.gz), subidos a Cloud Storage.
+-- la ejecución local (data/raw/clinvar_{release}.vcf.gz), subidos a Cloud Storage.
 --
 -- Nota importante de diseño: el dataset público `bigquery-public-data.human_variant_annotation`
 -- solo expone un volcado estático de ClinVar (hg19/hg38, fechado 2018-07-01), no las

@@ -1,24 +1,13 @@
-"""Generador OFFLINE determinista de datos tipo ClinVar + dbNSFP.
+"""Generador determinista de datos con el esquema de ClinVar y dbNSFP.
 
-Motivación (ADR 005): las fuentes reales (NCBI ClinVar FTP, dbNSFP académico) no
-son accesibles desde todos los entornos de ejecución (p. ej. sandboxes con
-allowlist de red). Para que el pipeline de anotación, el EDA y los tests sean
-100 % reproducibles sin red, este módulo genera ficheros *con el mismo esquema*
-que los reales:
+Existe para que las pruebas y la integración continua no dependan de la
+disponibilidad de NCBI ni de myvariant.info (ADR 005). Nunca alimenta un resultado
+citable: `download.py` solo llega aquí con `--offline` explícito.
 
-  * ClinVar VCF (GRCh38) por release fechada, con INFO/CLNSIG realista.
-  * dbNSFP subset tab delimitado con scores in silico y frecuencias.
-
-Propiedades clave que imitan al dato real:
-  1. Las features (CADD, REVEL, SIFT, PolyPhen, conservación, AF) CORRELACIONAN
-     con la patogenicidad mediante una señal latente: el problema es aprendible.
-  2. La release "nueva" (test) AÑADE variantes y RECLASIFICA una fracción de VUS
-     de la release "antigua" (train): concept drift temporal real, no simulado
-     de forma trivial (refuerza OE5).
-  3. Todo depende de una única semilla: reproducibilidad total.
-
-Este módulo NO sustituye al dato real: `download.py` intenta primero la descarga
-real y solo cae aquí si la red no está disponible.
+Tres propiedades imitan al dato real: las features correlacionan con la
+patogenicidad a través de una señal latente ruidosa, de modo que el problema sea
+aprendible pero no trivial; la release nueva añade variantes y reclasifica una
+fracción de las VUS de la antigua; y todo depende de una única semilla.
 """
 from __future__ import annotations
 
@@ -43,12 +32,9 @@ CONSEQUENCES = {
 
 BASES = ("A", "C", "G", "T")
 
-# Estado de revisión de ClinVar (CLNREVSTAT), con pesos aproximados a la
-# distribución real observada en `data/raw/clinvar_2023-12.vcf.gz` (ADR 008).
-# El generador usa un único vocabulario (a diferencia de ClinVar real, que
-# cambió de terminología entre las dos releases, ver `schema.py`): no es
-# necesario reproducir ese detalle para que el pipeline sea ejercitable
-# offline, solo que `review_status` exista y sea mapeable a estrellas.
+# CLNREVSTAT con pesos aproximados a la distribución real de la release antigua.
+# Un solo vocabulario, a diferencia de ClinVar real: para ejercitar el pipeline
+# basta con que el campo exista y sea mapeable a estrellas.
 _REVIEW_STATUSES = (
     "criteria_provided,_single_submitter",
     "criteria_provided,_multiple_submitters,_no_conflicts",
@@ -190,13 +176,10 @@ def generate_releases(cfg: SyntheticConfig) -> tuple[dict, dict]:
     clnsig_test = clnsig_train.copy()
     vus_idx = np.where(clnsig_train == "Uncertain_significance")[0]
     n_reclass = int(len(vus_idx) * cfg.frac_reclassified)
-    # Selección de qué VUS se reclasifican: PONDERADA por |latent-0.5|, no
-    # uniforme. Motivo (ADR 007): en la práctica clínica, las VUS con más
-    # evidencia previa (aunque insuficiente para un veredicto formal) tienden
-    # a resolverse antes que las genuinamente ambiguas. Una selección
-    # uniforme no deja ninguna señal aprendible sobre "qué VUS se
-    # reclasificará", lo que haría el modelo de reclasificación
-    # no mejor que el azar por construcción del propio generador.
+    # Qué VUS se reclasifican va ponderado por |latent-0.5|, no uniforme: en la
+    # práctica clínica, las VUS con más evidencia previa se resuelven antes. Con
+    # selección uniforme no habría señal aprendible por construcción, y el modelo de
+    # reclasificación no podría superar al azar hiciera lo que hiciera.
     lat_vus = core["latent"][vus_idx]
     weights = np.abs(lat_vus - 0.5) + 0.05  # +0.05: nunca probabilidad cero
     weights = weights / weights.sum()

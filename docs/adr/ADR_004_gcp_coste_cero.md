@@ -1,23 +1,20 @@
-# ADR 004: Estrategia GCP de coste cero y comparativa MLflow vs. gestionado
+# ADR 004: Estrategia de coste cero en la nube y enfoque de la comparativa
 
-* **Fecha:** 2026-07-06
-* **Estado:** Aceptada (D6 parcialmente abierta)
+**Fecha:** 2026-07-06 · **Estado:** aceptada
 
 ## Contexto
-Restricción de la autora: no introducir tarjeta ni pagar. GCP separa servicios sin tarjeta
-(BigQuery Sandbox) de servicios que exigen cuenta de facturación (Cloud Run, Vertex AI).
-Además, al pasar a GCP la comparativa de plataformas (OE6) puede reenfocarse.
+
+Restricción autoimpuesta: no registrar tarjeta ni pagar nada. GCP separa los servicios que no exigen cuenta de facturación (BigQuery Sandbox) de los que sí la exigen (Cloud Run, Vertex AI), aunque el *free tier* de estos últimos no llegue a cobrar.
 
 ## Decisión
-1. **Datos/anotación en GCP** vía **BigQuery Sandbox** (sin tarjeta: 1 TB/mes, datasets genómicos
-   públicos ya alojados).
-2. **Despliegue**: empezar por diseño documentado + demo local; el despliegue real en Cloud Run
-   (que requiere tarjeta de verificación, sin cargo dentro del free tier) queda como decisión D6 abierta.
-3. **Comparativa OE6** reenfocada a **MLflow autogestionado vs. Vertex AI/GCP gestionado**
-   (open source vs. managed). DVC se mantiene como versionador de datos, no como objeto de comparativa.
+
+1. La capa de datos y anotación en la nube se resuelve con **BigQuery Sandbox**: sin tarjeta, 1 TB de consultas al mes y datasets genómicos públicos ya alojados.
+2. El despliegue del servicio se aborda como diseño documentado más demo local. El despliegue real en Cloud Run queda condicionado a aceptar la verificación con tarjeta, decisión que finalmente no se tomó.
+3. La comparativa se reenfoca a **MLflow autogestionado frente a la pila gestionada de GCP**, es decir código abierto frente a servicio administrado. DVC se mantiene como versionador de datos, no como objeto de comparación.
 
 ## Consecuencias
-* A favor: La mayor parte de la Fase II se hace sin tarjeta y sin riesgo de coste.
-* A favor: La comparativa open source vs. managed es más rica y alineada con el perfil de la autora.
-* En contra: El despliegue real en Cloud Run exige decisión posterior (D6) sobre registrar tarjeta.
-* En contra: BigQuery Sandbox expira tablas a 60 días (irrelevante para el TFM; se documenta).
+
+* La mayor parte de la extensión a la nube puede hacerse sin tarjeta y sin riesgo de coste.
+* La comparativa entre autogestionado y gestionado es más rica y está más alineada con mi perfil profesional que una comparación de herramientas equivalentes.
+* El despliegue real queda pendiente de una decisión posterior.
+* BigQuery Sandbox expira las tablas a los 60 días, irrelevante aquí pero conviene documentarlo.

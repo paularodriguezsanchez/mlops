@@ -1,28 +1,15 @@
-"""Anotación multi-fuente real, sin dbNSFP (ADR 007 / B5).
+"""Anotación multi-fuente sin dbNSFP (ADR 007).
 
-dbNSFP exige un registro académico con verificación no instantánea (ver
-la revisión interna del proyecto ese hallazgo). En vez de esperarlo, este módulo consulta
-directamente las fuentes públicas que dbNSFP agrega, sin necesidad de
-registro:
+dbNSFP exige un registro académico que no llega de forma inmediata, así que consulto
+directamente el agregador que expone las mismas fuentes sin registro:
+myvariant.info devuelve CADD, SIFT, PolyPhen-2, GERP++, phyloP, REVEL,
+AlphaMissense y la frecuencia de gnomAD en una sola llamada por lote.
 
-  * **myvariant.info** (agregador público, sin registro): expone, todo bajo
-    su copia de dbNSFP, CADD/SIFT/PolyPhen2/GERP++/phyloP/REVEL/AlphaMissense
-    — exactamente las columnas que ya usa el pipeline más AlphaMissense
-    (nueva) — y frecuencia gnomAD aparte. Ojo: para GRCh38 hace falta
-    `assembly=hg38` explícito (si no, todo "notfound" aunque exista dato).
-  * **SpliceAI** (Illumina, open source): se intenta vía el servicio de
-    consulta de Broad; si no está accesible desde este entorno (confirmado
-    no accesible en pruebas, ver ADR 007), se degrada a NaN documentado, en
-    vez de bloquear el pipeline — mismo patrón de fallback que ADR 005.
+SpliceAI se intenta contra el servicio del Broad Institute; no está accesible desde
+este entorno, así que degrada a NaN documentado en vez de bloquear el pipeline.
 
-No se descarga nada masivo (CADD/AlphaMissense completos pesan decenas de
-GB): se consulta variante a variante, en lotes, solo para las variantes que
-de verdad se van a anotar (tras `chromosomes_subset`/`max_variants_per_release`).
-
-Uso:
-    from src.annotate.multi_source import annotate_multi_source
-    features = annotate_multi_source(clinvar_df) # -> DataFrame con las mismas
-                                                     # columnas que `load_dbnsfp`
+No se descarga nada masivo: se consulta por lotes, y solo las variantes que
+realmente se van a anotar tras acotar cromosomas y volumen.
 """
 from __future__ import annotations
 
@@ -36,16 +23,13 @@ import numpy as np
 import pandas as pd
 
 _MYVARIANT_URL = "https://myvariant.info/v1/variant"
-# GRCh38 (`config/config.yaml`): myvariant.info requiere `assembly=hg38` explícito y, en
-# ese ensamblaje, CADD/SIFT/PolyPhen/conservación viven bajo el namespace
-# `dbnsfp.*` (el namespace `cadd.*` de nivel superior es solo hg19). Detectado
-# al validar B5 con ClinVar real: sin `assembly=hg38` todas las consultas
-# devolvían "notfound" pese a ser variantes bien anotadas (ver ADR 007).
+# myvariant.info asume hg19 por defecto: sin `assembly=hg38` explícito toda consulta
+# devuelve "notfound" aunque el dato exista. Bajo hg38, además, CADD, SIFT, PolyPhen
+# y conservación viven en el namespace `dbnsfp.*`, no en `cadd.*`.
 _MYVARIANT_ASSEMBLY = "hg38"
-# Se pide el objeto `dbnsfp` COMPLETO (no subcampos concretos vía dot-path):
-# `dbnsfp.gerp++.rs` como proyección de campo devuelve vacío pese a que el
-# dato existe (myvariant.info no proyecta bien nombres con "+"; detectado al
-# validar B5 con ClinVar real). Payload algo mayor, pero fiable.
+# Se pide el objeto `dbnsfp` completo, no subcampos por dot-path: la proyección de
+# `dbnsfp.gerp++.rs` devuelve vacío pese a existir el dato, porque la API no maneja
+# bien los nombres con "+". Payload mayor, pero fiable.
 _MYVARIANT_FIELDS = "dbnsfp,gnomad_exome.af.af,gnomad_genome.af.af"
 _BATCH_SIZE = 1000
 _TIMEOUT = 30
@@ -76,7 +60,7 @@ def _first(*values: float | None) -> float | None:
 
 
 def _mean_or_none(x) -> float | None:
-    """AlphaMissense puede venir como lista (una por transcrito): media."""
+    """Media cuando el valor llega como lista, una entrada por transcrito."""
     if x is None:
         return None
     if isinstance(x, list):
@@ -88,11 +72,9 @@ def _mean_or_none(x) -> float | None:
 def _parse_hit(hit: dict) -> dict:
     """Extrae las columnas del objeto `dbnsfp` completo.
 
-    Varios campos (revel, alphamissense, sift, polyphen2, gerp++, phylop,
-    cadd) pueden venir como LISTA cuando la variante mapea a varios
-    transcritos/isoformas: se promedian con `_mean_or_none`, no solo
-    AlphaMissense (bug detectado al validar B5: quedaban listas sin castear
-    en columnas que el contrato de datos espera numéricas).
+    Cualquiera de los campos puede llegar como lista si la variante mapea a varios
+    transcritos, no solo AlphaMissense: todos se promedian, o el contrato de datos
+    recibe listas donde espera numéricos.
     """
     if hit.get("notfound"):
         return {}
@@ -115,11 +97,10 @@ def _parse_hit(hit: dict) -> dict:
 
 def fetch_myvariant(variants: pd.DataFrame, batch_size: int = _BATCH_SIZE,
                     timeout: int = _TIMEOUT) -> pd.DataFrame:
-    """Consulta myvariant.info en lotes para `variants[["chrom","pos","ref","alt"]]`.
+    """Consulta myvariant.info en lotes.
 
-    Devuelve un DataFrame con las mismas claves más las columnas de
-    `FEATURE_COLUMNS`. Variantes no encontradas en el agregador quedan con
-    NaN (igual que dbNSFP real para posiciones fuera de su cobertura).
+    Devuelve las claves más `FEATURE_COLUMNS`. Las variantes fuera de la cobertura
+    del agregador quedan con NaN, igual que ocurriría con dbNSFP.
     """
     keys = variants[["chrom", "pos", "ref", "alt"]].drop_duplicates().reset_index(drop=True)
     ids = [_variant_id(*row) for row in keys.itertuples(index=False)]
@@ -133,8 +114,7 @@ def fetch_myvariant(variants: pd.DataFrame, batch_size: int = _BATCH_SIZE,
             "fields": _MYVARIANT_FIELDS,
             "assembly": _MYVARIANT_ASSEMBLY,
         }).encode()
-        # S310: `_MYVARIANT_URL` es una constante HTTPS fija de este módulo, no
-        # entrada de usuario — no hay riesgo de esquema `file:`/SSRF vía input externo.
+        # S310: la URL es una constante HTTPS del módulo, no entrada externa.
         req = urllib.request.Request(  # noqa: S310
             _MYVARIANT_URL, data=data, headers={"User-Agent": "tfm-mlops-variantes"})
         try:
@@ -169,18 +149,15 @@ _spliceai_warned = False
 
 def fetch_spliceai(chrom: str, pos: int, ref: str, alt: str,
                    timeout: int = _SPLICEAI_TIMEOUT) -> float | None:
-    """Mejor esfuerzo: score SpliceAI (delta máximo) para una variante.
+    """Score SpliceAI (delta máximo) de una variante, en modo mejor esfuerzo.
 
-    El servicio de Broad no fue accesible en pruebas desde este entorno (ver
-    ADR 007 §1); si falla, se avisa UNA vez y se devuelve None en vez de
-    reintentar por variante (evita ruido y coste).
+    El servicio del Broad no es accesible desde este entorno (ADR 007 §1): si falla,
+    avisa una sola vez por proceso y devuelve None, sin reintentar por variante.
     """
     global _spliceai_warned
     variant = f"{chrom}-{pos}-{ref}-{alt}"
     try:
-        # S310: el host es la constante HTTPS `_SPLICEAI_URL`; solo la query
-        # string incorpora datos de la variante (coordenadas ya validadas por
-        # `schema.py` aguas arriba), no hay esquema controlable por el llamante.
+        # S310: host constante; solo la query string lleva coordenadas ya validadas.
         req = urllib.request.Request(  # noqa: S310
             f"{_SPLICEAI_URL}?hg=38&variant={variant}&distance=50&mask=0",
             headers={"User-Agent": "tfm-mlops-variantes"})
@@ -200,11 +177,10 @@ def fetch_spliceai(chrom: str, pos: int, ref: str, alt: str,
 
 def annotate_multi_source(clinvar: pd.DataFrame, chroms: list[str] | None = None,
                           include_spliceai: bool = False) -> pd.DataFrame:
-    """Anota `clinvar` con features reales de myvariant.info (sustituye dbNSFP).
+    """Anota `clinvar` contra myvariant.info, con la misma salida que `annotate`.
 
-    Misma forma de salida que `annotate.annotate(clinvar, dbnsfp, chroms)`.
-    `include_spliceai=True` añade `splice_ai_score` (mejor esfuerzo, lento:
-    una consulta por variante); por defecto desactivado para lotes grandes.
+    `include_spliceai=True` añade `splice_ai_score`: una consulta por variante,
+    lento, desactivado por defecto.
     """
     from src.annotate import schema
 
@@ -219,9 +195,8 @@ def annotate_multi_source(clinvar: pd.DataFrame, chroms: list[str] | None = None
             for r in merged.itertuples(index=False)
         ]
 
-    # `review_status`/`review_stars` viajan desde `clinvar` (ver
-    # `annotate.parse_clinvar_vcf`), no de myvariant.info -- son
-    # temporalmente seguros por release, ver ADR 008.
+    # `review_status` y `review_stars` vienen del VCF, no del agregador: son
+    # temporalmente seguros por release (ADR 008).
     ordered = (schema.KEY_COLUMNS + ["gene", "consequence", "clnsig", "review_status"]
               + list(schema.NUMERIC_RANGES))
     cols = ordered + (["splice_ai_score"] if include_spliceai else [])

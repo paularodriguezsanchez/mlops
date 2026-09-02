@@ -1,21 +1,21 @@
-# ADR 002: Selección del dataset
+# ADR 002: Selección del dominio y del conjunto de datos
 
-* **Fecha:** 2026-07-06
-* **Estado:** Aceptada
+**Fecha:** 2026-07-06 · **Estado:** aceptada
 
 ## Contexto
-Se necesita un dataset de genómica público, con variantes e información asociada, que permita
-un problema supervisado y simular el ciclo completo. El anteproyecto ponía como ejemplo datasets
-clínicos tabulares (Heart Disease/Diabetes), pero el requisito real es "dataset biomédico público".
+
+El anteproyecto pedía un conjunto biomédico público que permitiera un problema supervisado y el ciclo MLOps completo, y ponía como ejemplo conjuntos tabulares clásicos del tipo Heart Disease o Diabetes. Son conjuntos estáticos, publicados en una única versión: cualquier deriva solo podría simularse inyectando un cambio artificial.
 
 ## Decisión
-Usar **ClinVar** como fuente de etiquetas (significancia clínica: patogénica/benigna) y
-**dbNSFP + gnomAD** como fuente de features (scores CADD/SIFT/PolyPhen/REVEL, conservación,
-frecuencia alélica). Consecuencia funcional vía VEP/Ensembl. Foco en SNVs, ensamblaje GRCh38.
+
+Concreto el dominio a la clasificación de patogenicidad de variantes genéticas: **ClinVar** como fuente de etiquetas y **gnomAD junto a los predictores in silico de referencia** como fuente de features, con la consecuencia funcional del propio VCF. Foco en SNVs sobre GRCh38.
+
+Descarto los conjuntos tabulares clásicos por dos motivos: no permiten observar deriva real, solo simulada, y no aprovechan mi experiencia previa en genómica y en plataformas de datos en la nube. Tras la anotación el problema sigue siendo tabular, así que se mantiene el requisito de usar algoritmos estándar.
 
 ## Consecuencias
-* A favor: Combinación estándar en la literatura de predicción de patogenicidad (REVEL, ClinPred).
-* A favor: 100 % pública y reproducible; disponible en local (descarga) y en BigQuery (cloud).
-* A favor: Habilita *concept drift* temporal real usando releases fechadas de ClinVar.
-* En contra: Volumen grande (dbNSFP/gnomAD): se acota por cromosoma/tipo en Fase I (config).
-* En contra: Desbalanceo de clases: se maneja con métricas PR AUC/F1 y balanceo.
+
+* Es la combinación habitual en la literatura de predicción de patogenicidad, lo que permite comparar con REVEL, CADD o RENOVO.
+* Es reproducible por cualquier tercero: todo público, sin registro.
+* Habilita deriva temporal real usando dos *releases* fechadas, que acabó siendo la base de la aportación central del trabajo.
+* El volumen obliga a acotar por cromosoma y por número de variantes.
+* El desbalance de clases es estructural del dominio y fija PR AUC como métrica principal desde el principio.

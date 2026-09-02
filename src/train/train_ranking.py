@@ -1,29 +1,17 @@
-"""Objetivo de ranking para la priorización de VUS (núcleo del proyecto — ADR 007 §5).
+"""Objetivo de ranking para la priorización de VUS (ADR 007 §5).
 
-El modelo de patogenicidad (`train.py`) optimiza una pérdida de clasificación
-(log-loss) y se evalúa con PR-AUC: es una buena métrica de calibración, pero
-el entregable real del proyecto es un **orden de prioridad** (`prioritize_
-vus.py`), no una probabilidad aislada. Este módulo entrena un modelo con
-objetivo de *ranking* (LightGBM `lambdarank`) y lo evalúa con métricas de
-ranking (NDCG@k), que miden directamente "¿las variantes que deberían ir
-arriba, van arriba?" en vez de "¿la probabilidad está bien calibrada?".
+El entregable real es un orden de prioridad, no una probabilidad aislada, así que
+entreno directamente sobre esa función objetivo (LightGBM `lambdarank`) y evalúo
+con NDCG@k en vez de con métricas de clasificación.
 
-Simplificación explícita: LambdaMART agrupa ítems por "query" (en buscadores,
-una query = una búsqueda con varios resultados a ordenar). Aquí no hay una
-agrupación natural (no hay "una query por paciente"): se trata como un único
-grupo global (todas las variantes del holdout se ordenan entre sí). Es una
-simplificación razonable para un ranking global de prioridad, documentada
-como tal, no disfrazada de otra cosa.
+LambdaMART agrupa ítems por *query*; aquí no hay agrupación natural, así que uso
+un único grupo global. Es una simplificación, documentada como tal.
 
-El booster (`models/ranking_model/lambdarank.txt`) y el preprocesador con el
-que se entrenó (`models/ranking_model/preprocessor.joblib`) los carga después
-`src/serve/prioritize_vus.py::load_ranking_model`: es el criterio real de
-orden que usan la priorización de VUS y el generador de informes por VUS, con
-fallback
-automático a la probabilidad de patogenicidad del modelo de patogenicidad si este modelo no está
-entrenado todavía.
+El booster y el preprocesador ajustado se persisten en `models/ranking_model/` y
+los carga `src/serve/prioritize_vus.py::load_ranking_model`, que es quien decide
+el orden real servido, con reversión a la probabilidad de patogenicidad si este
+modelo aún no está entrenado.
 
-Uso:
     python -m src.train.train_ranking
 """
 from __future__ import annotations
@@ -56,16 +44,12 @@ def _ndcg_at_ks(y_true: np.ndarray, y_score: np.ndarray, ks=_NDCG_KS) -> dict[st
 
 
 def _baseline_ndcg(y_true: np.ndarray, seed: int, n_reps: int = 50, ks=_NDCG_KS) -> dict:
-    """NDCG de dos baselines triviales.
+    """NDCG de dos baselines triviales, sin los que un NDCG alto no es interpretable.
 
-    Sin un baseline, un NDCG@10=0,78 no dice si el modelo aporta algo: puede
-    que un desbalance de clases favorable haga que CASI cualquier orden
-    puntúe alto. Dos referencias:
-      * "orden de llegada": el orden en que las filas llegan del holdout, sin
-        reordenar -- lo que vería un revisor si no existiera ranking alguno.
-      * "aleatorio": la media (y desviación) de NDCG sobre `n_reps` órdenes
-        aleatorios independientes, para saber si el orden de llegada en sí ya
-        es informativo por azar (no debería, pero se comprueba, no se asume).
+    `arrival_order` es el orden en que llegan las filas del holdout, sin reordenar:
+    lo que vería un revisor sin ranking. `random_*` promedia `n_reps` órdenes
+    aleatorios, para comprobar (no asumir) que el orden de llegada no es informativo
+    por azar.
     """
     rng = np.random.default_rng(seed)
     arrival = _ndcg_at_ks(y_true, np.arange(len(y_true), 0, -1, dtype=float), ks)
@@ -93,10 +77,7 @@ def run(tracking_uri: str | None = None) -> dict:
     X_train, y_train = train_df[FEATURE_COLUMNS], train_df["label"].astype(int)
     X_test, y_test = test_df[FEATURE_COLUMNS], test_df["label"].astype(int)
 
-    # Mismo criterio honesto que train.py (revisión interna del proyecto): evaluar sobre el
-    # holdout NO visto, no sobre el test completo (que persiste variantes de train).
-    # `unseen_mask` está definida en train.py y reutilizada aquí (antes duplicada
-    # de forma idéntica en ambos módulos, la revisión técnica del proyecto).
+    # Mismo criterio que train.py: evaluar solo sobre el holdout no visto.
     unseen = unseen_mask(train_df, test_df)
     X_hold, y_hold = X_test[unseen], y_test[unseen]
 
@@ -104,10 +85,9 @@ def run(tracking_uri: str | None = None) -> dict:
     X_train_t = pre.fit_transform(X_train, y_train)
     X_hold_t = pre.transform(X_hold)
 
-    # `deterministic`/`force_row_wise`/`num_threads=1` fijan la reducción en coma
-    # flotante de la construcción de histogramas: sin ellos, LightGBM no es
-    # reproducible entre ejecuciones pese a `random_state` fijo (confirmado en
-    # la revisión interna del proyecto — dos ejecuciones idénticas dieron NDCG@10 distinto).
+    # `deterministic`, `force_row_wise` y `num_threads=1` fijan la reducción en coma
+    # flotante al construir histogramas: sin ellos LightGBM no es reproducible entre
+    # ejecuciones pese al `random_state` fijo (dos ejecuciones dieron NDCG@10 distinto).
     ranker = lgb.LGBMRanker(
         objective="lambdarank", n_estimators=200, random_state=seed, verbosity=-1,
         deterministic=True, force_row_wise=True, num_threads=1)
@@ -115,7 +95,7 @@ def run(tracking_uri: str | None = None) -> dict:
 
     scores = ranker.predict(X_hold_t)
     ndcg = _ndcg_at_ks(y_hold.to_numpy(), scores)
-    # Métricas de clasificación de referencia, para comparar con train.py (PR AUC).
+    # Referencia de clasificación, para comparar con train.py.
     prob_like = (scores - scores.min()) / (scores.max() - scores.min() + 1e-12)
     classif = compute_metrics(y_hold, prob_like)
     baseline = _baseline_ndcg(y_hold.to_numpy(), seed)
@@ -133,15 +113,10 @@ def run(tracking_uri: str | None = None) -> dict:
     models_dir.mkdir(parents=True, exist_ok=True)
     booster_path = models_dir / "lambdarank.txt"
     ranker.booster_.save_model(str(booster_path))
-    # Se persiste también el preprocesador ya ajustado (fit sobre train.parquet),
-    # no solo el booster: en serving (`src, serve, prioritize_vus.py`) hace
-    # falta exactamente esta misma transformación (medianas de imputación,
-    # medias/desviaciones de escalado, categorías de one-hot) para que el score
-    # de ranking sea comparable al usado aquí en evaluación. Sin este artefacto,
-    # cargar el modelo en serving obligaría a reajustar el preprocesador contra
-    # `train.parquet` en ese momento, con el riesgo de que una regeneración
-    # posterior del dataset produzca un ajuste ligeramente distinto del que
-    # realmente entrenó este booster.
+    # Persisto el preprocesador ya ajustado, no solo el booster: serving necesita
+    # exactamente estas medianas, escalas y categorías para que su score sea
+    # comparable al evaluado aquí. Reajustarlo en carga expondría el sistema a que
+    # una regeneración posterior del dataset produjera una transformación distinta.
     preprocessor_path = models_dir / "preprocessor.joblib"
     joblib.dump(pre, preprocessor_path)
 
@@ -158,9 +133,8 @@ def run(tracking_uri: str | None = None) -> dict:
                             for k, v in baseline["arrival_order"].items()})
         mlflow.log_metrics({f"baseline_random_mean_{k}": v
                             for k, v in baseline["random_mean"].items()})
-        # Se registra el booster nativo como artefacto (texto), no vía el
-        # flavor `mlflow.lightgbm` con el wrapper sklearn: ese exige
-        # serializar con skops, que por defecto no confía en LGBMRanker.
+        # Booster nativo como artefacto de texto, no vía el flavor `mlflow.lightgbm`:
+        # ese serializa con skops, que por defecto no confía en LGBMRanker.
         mlflow.log_artifact(str(booster_path), artifact_path="model")
         mlflow.log_artifact(str(preprocessor_path), artifact_path="model")
 

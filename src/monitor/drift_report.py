@@ -1,18 +1,17 @@
-"""Informe de monitorización y detección de drift [OE5, esa etapa+esa etapa].
+"""Informe de monitorización entre la release de referencia y la actual.
 
-Compara la release de referencia (ClinVar 2023-12) con la actual (2025-06) y produce:
-  1. **Drift de covariables** (features): tabla propia (KS/PSI) + informe HTML de Evidently.
-  2. **Concept drift**: variantes reclasificadas (VUS→resuelta) y su impacto en el
-     rendimiento del modelo entrenado con las etiquetas antiguas → señal real de OE5.
-  3. **Stress test** (perturbación controlada, plan R6): valida que la ALERTA por
-     umbral se dispara cuando sí hay drift de features.
+Tres señales en paralelo:
+  1. Drift de covariables, con la tabla KS/PSI propia y un informe HTML de Evidently
+     como verificación cruzada.
+  2. Deriva de reclasificación: variantes que eran VUS y aparecen resueltas, más el
+     acierto del modelo sobre ellas. No se llama concept drift porque completar una
+     etiqueta no demuestra por sí solo un cambio en P(Y|X).
+  3. Prueba de estrés con perturbación controlada, que verifica que el mecanismo de
+     alerta responde cuando debe; no cuenta para la alerta global.
 
-Salida:
-  reports/monitoring/evidently_drift.html (informe citable)
-  reports/monitoring/drift_summary.json (decisión de alerta)
-  reports/monitoring/drift_features.csv (tabla por feature)
+Escribe `evidently_drift.html`, `drift_summary.json` y `drift_features.csv` en
+`reports/monitoring/`.
 
-Uso:
     python -m src.monitor.drift_report
 """
 from __future__ import annotations
@@ -48,22 +47,15 @@ def _covariate_drift(ref: pd.DataFrame, cur: pd.DataFrame, threshold: float) -> 
     return {"table": table, "summary": summary}
 
 
-def _concept_drift(ref: pd.DataFrame, cur: pd.DataFrame) -> dict:
-    """Reclasificaciones VUS→resuelta y rendimiento del modelo en ellas.
+def _reclassification_drift(ref: pd.DataFrame, cur: pd.DataFrame) -> dict:
+    """Reclasificaciones VUS -> resuelta y acierto del modelo sobre ellas.
 
-    Usa la misma definición estricta de VUS que `build_dataset.py`/el modelo de potencial de
-    reclasificación
-    (`is_vus`, únicamente "Uncertain_significance"), en vez del literal
-    hardcodeado de forma independiente que tenía antes este módulo -- eran
-    ya la misma cadena, pero la duplicación es la que dejó pasar sin
-    detectar la discrepancia real: la población de "VUS" del modelo de reclasificación
-    (definida en
-    `build_dataset.py`) incluía además clasificaciones conflictivas, no
-    solo VUS estricta. `n_shared`
-    sigue siendo el total de variantes compartidas entre ambas releases
-    (cualquier `clnsig`), no solo VUS: es el denominador de la tasa de
-    alerta, una magnitud distinta y deliberadamente más amplia que la
-    población de VUS del modelo de reclasificación.
+    Usa `is_vus`, la misma definición estricta que `build_dataset.py`, no un literal
+    duplicado aquí: es esa duplicación la que dejó pasar durante tiempo dos
+    poblaciones de "VUS" distintas y dos recuentos irreconciliables.
+
+    `n_shared` es el total de variantes compartidas entre releases, no solo VUS:
+    es el denominador de la tasa de alerta, deliberadamente más amplio.
     """
     m = ref[_KEY + ["clnsig"]].merge(cur[_KEY + ["clnsig"]], on=_KEY,
                                      suffixes=("_old", "_new"))
@@ -80,15 +72,14 @@ def _concept_drift(ref: pd.DataFrame, cur: pd.DataFrame) -> dict:
         acc = float(((prob >= 0.5).astype(int) == y_new).mean())
         out["model_accuracy_on_reclassified"] = round(acc, 4)
         out["interpretation"] = (
-            "El modelo se entrenó cuando estas variantes eran VUS (excluidas). "
-            "Su acierto frente a la nueva verdad clínica mide el impacto del "
-            "concept drift; por debajo de lo esperado justifica reentrenar.")
+            "El modelo se entrenó cuando estas variantes eran VUS, excluidas del "
+            "entrenamiento. Su acierto frente al veredicto clínico nuevo mide el "
+            "impacto de la deriva; por debajo de lo esperado, justifica reentrenar.")
     except Exception as exc:  # noqa: BLE001
         out["model_accuracy_on_reclassified"] = None
         out["note"] = f"modelo no disponible: {exc}"
-    # Alerta de concept drift: proporción de variantes compartidas reclasificadas
-    # por encima de un umbral (no "cualquier" reclasificación). Ver la revisión interna del
-    # proyecto.
+    # La alerta exige una proporción de reclasificadas por encima del umbral, no
+    # "cualquier" reclasificación, que resultaba demasiado laxo.
     share = len(reclass) / len(m) if len(m) else 0.0
     out["share_reclassified"] = round(share, 4)
     out["reclassified_threshold"] = 0.02
@@ -97,7 +88,7 @@ def _concept_drift(ref: pd.DataFrame, cur: pd.DataFrame) -> dict:
 
 
 def _stress_test(cur: pd.DataFrame, threshold: float, seed: int) -> dict:
-    """Perturbación controlada (plan R6): desplaza features para validar la alerta."""
+    """Perturbación controlada: desplaza features para validar el mecanismo de alerta."""
     rng = np.random.default_rng(seed)
     perturbed = cur.copy()
     perturbed["cadd_phred"] = np.clip(perturbed["cadd_phred"] + 8, 0, 60)
@@ -138,7 +129,7 @@ def run() -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     cov = _covariate_drift(ref, cur, threshold)
-    concept = _concept_drift(ref, cur)
+    reclass = _reclassification_drift(ref, cur)
     stress = _stress_test(cur, threshold, get_seed())
     evidently_ok = _evidently_html(ref, cur, out_dir / "evidently_drift.html")
 
@@ -147,19 +138,19 @@ def run() -> dict:
         "reference_release": cfg["data"]["clinvar_train_release"],
         "current_release": cfg["data"]["clinvar_test_release"],
         "covariate_drift": cov["summary"],
-        "concept_drift": concept,
+        "reclassification_drift": reclass,
         "stress_test": stress,
         "evidently_report": "evidently_drift.html" if evidently_ok else None,
-        "overall_alert": bool(cov["summary"]["alert"] or concept["alert"]),
+        "overall_alert": bool(cov["summary"]["alert"] or reclass["alert"]),
     }
     (out_dir / "drift_summary.json").write_text(
         json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
 
     print(f"Covariate drift: {cov['summary']['n_drifted']}/{cov['summary']['n_features']} "
           f"features (alert={cov['summary']['alert']})")
-    print(f"Concept drift: {concept['n_reclassified']} reclasificadas, "
-          f"acc modelo en ellas={concept.get('model_accuracy_on_reclassified')} "
-          f"(alert={concept['alert']})")
+    print(f"Deriva de reclasificación: {reclass['n_reclassified']} reclasificadas, "
+          f"acierto del modelo en ellas={reclass.get('model_accuracy_on_reclassified')} "
+          f"(alert={reclass['alert']})")
     print(f"Stress test (perturbación): alert={stress['alert']} "
           f"({stress['n_drifted']}/{stress['n_features']} features)")
     print(f">> ALERTA GLOBAL: {summary['overall_alert']}")

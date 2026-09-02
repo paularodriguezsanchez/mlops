@@ -1,27 +1,17 @@
 """Representatividad de los cromosomas 1-3 frente al resto del genoma.
 
-revisión posterior del proyecto: la Fase I local restringe la
-anotación a SNVs de los cromosomas 1-3 por volumen y coste de consultas de
-red (declarado en la memoria, sección~5.9), pero hasta esta revisión no se
-había estudiado si chr1-3 son representativos del resto de ClinVar en genes,
-consecuencia funcional, estado de revisión o distribución de clases -- los
-resultados del proyecto se generalizan implícitamente a "las VUS" sin
-acotar esa generalización a la población realmente estudiada.
+La fase local acota la anotación a chr1-3 por volumen y coste de red. Declararlo no
+basta: si esa población no fuera representativa, generalizar los resultados a "las
+VUS" sería indebido.
 
-Este módulo NO requiere red: el VCF crudo de ClinVar ya descargado
-(`data/raw/clinvar_*.vcf.gz`) contiene el genoma completo; el recorte a
-chr1-3 ocurre más adelante, en `annotate.py`. Aquí se parsea el VCF completo
-sin recortar y se compara la distribución de chr1-3 frente al resto del
-genoma (autosomas 4-22 + X + Y; se excluyen contigs alternativos/no
-estándar) en tres ejes: bucket de CLNSIG (positivo/negativo/VUS/excluido,
-misma taxonomía que `build_dataset.py`), estado de revisión (`review_stars`)
-y consecuencia funcional (`MC`, top-10 categorías). La métrica es el mismo
-Population Stability Index (PSI) ya usado por `src/monitor/drift.py` para
-detectar deriva entre releases, aplicado aquí entre poblaciones geográficas
-(cromosómicas) en vez de temporales.
+No requiere red. El VCF crudo ya descargado contiene el genoma completo -el recorte
+ocurre después, al anotar-, así que se parsea sin recortar y se compara chr1-3
+frente al resto (autosomas y cromosomas sexuales estándar) en tres ejes: bucket de
+CLNSIG, estado de revisión y consecuencia funcional. La métrica es el mismo PSI que
+usa `src/monitor/drift.py` entre releases, aplicado aquí entre poblaciones
+cromosómicas en vez de temporales.
 
-Uso:
-    python -m src.evaluate.chr_representativeness --release 2025-06
+    python -m src.evaluate.chr_representativeness [--release 2025-06]
 """
 from __future__ import annotations
 
@@ -48,8 +38,8 @@ def _clnsig_bucket(clnsig: pd.Series, mapping: dict[str, int]) -> pd.Series:
 
 
 def _top_consequence(mc: pd.Series, top_n: int = 10) -> pd.Series:
-    """Colapsa consecuencias fuera del top-N en 'otra' para que el PSI categórico
-    no explote con decenas de categorías raras casi vacías en algún grupo."""
+    """Colapsa las consecuencias fuera del top-N en "otra": con decenas de
+    categorías casi vacías en un grupo, el PSI categórico se dispara."""
     top = mc.value_counts().head(top_n).index
     return mc.where(mc.isin(top), "otra")
 
@@ -116,11 +106,8 @@ def run(release: str | None = None) -> dict:
           f"| PSI consequence(top10)={result['psi_consequence_top10']}")
     print(f"  bucket chr1-3={result['clnsig_bucket_chr1_3']}")
     print(f"  bucket resto ={result['clnsig_bucket_resto']}")
-    # Cada gen vive en un único cromosoma por definición biológica: el 100%
-    # de solape nulo entre `genes_chr1_3` y `genes_resto` es esperado y NO es
-    # una señal de sesgo, así que se reporta como cobertura (qué fracción del
-    # total de genes con variantes queda representada en chr1-3), no como
-    # solapamiento.
+    # Cada gen vive en un único cromosoma, así que el solape nulo es esperado y no
+    # una señal de sesgo: se reporta como cobertura, no como solapamiento.
     total_genes = result["n_genes_chr1_3"] + result["n_genes_resto"]
     cobertura_pct = round(100 * result["n_genes_chr1_3"] / total_genes, 1) if total_genes else 0.0
     print(f"  genes distintos: chr1-3={result['n_genes_chr1_3']} "
@@ -133,8 +120,7 @@ def run(release: str | None = None) -> dict:
 
 def _parse_args(argv=None):
     p = argparse.ArgumentParser(
-        description="Representatividad de chr1-3 frente al resto del genoma "
-                    ".")
+        description="Representatividad de chr1-3 frente al resto del genoma.")
     p.add_argument("--release", default=None, help="Release a analizar (por defecto, test).")
     return p.parse_args(argv)
 
