@@ -39,7 +39,10 @@ _PAGE = """<!doctype html>
   th:hover { background: #e1e8e3; }
 .bar-wrap { width: 90px; background: #e4e8e5; border-radius: 4px; overflow: hidden;
               display: inline-block; height: 8px; vertical-align: middle; margin-right: 6px; }
-.bar { height: 8px; background: #2f7d4f; }
+/* display:block es obligatorio: un <span> vacio en flujo inline ignora width y
+     height, asi que sin esto la barra no llega a pintarse aunque el estilo en linea
+     sea correcto. En bloque llena ademas la altura completa de .bar-wrap. */
+.bar { display: block; height: 8px; background: #2f7d4f; }
 .bar.reclass { background: #a8631f; }
 .tag { display: inline-block; font-size: 0.7rem; padding: 1px 6px; border-radius: 10px;
          background: #dfeee5; color: #1f5c3a; margin: 1px 2px 1px 0; }

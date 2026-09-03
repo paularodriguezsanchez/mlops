@@ -5,6 +5,7 @@ más intervalos bootstrap, métricas de cola, calibración y curvas completas.
 """
 from __future__ import annotations
 
+import textwrap
 from pathlib import Path
 
 import matplotlib
@@ -214,13 +215,16 @@ def save_confusion_matrix(y_true, y_prob, path: Path, threshold: float = 0.5,
     y_pred = (np.asarray(y_prob, dtype=float) >= threshold).astype(int)
     cm = confusion_matrix(y_true, y_pred)
     path.parent.mkdir(parents=True, exist_ok=True)
-    fig, ax = plt.subplots(figsize=(3.6, 3.2))
+    # El lienzo se dimensiona para el caso peor (títulos con el nombre del algoritmo y
+    # etiquetas largas como "No reclasificada"): con el tamaño anterior el título salía
+    # recortado por el borde y las dos etiquetas del eje X se solapaban entre sí.
+    fig, ax = plt.subplots(figsize=(5.2, 3.8))
     im = ax.imshow(cm, cmap="Blues")
-    ax.set_xticks([0, 1], list(labels))
-    ax.set_yticks([0, 1], list(labels))
-    ax.set_xlabel("Predicho")
-    ax.set_ylabel("Real")
-    ax.set_title(title)
+    ax.set_xticks([0, 1], list(labels), fontsize=9)
+    ax.set_yticks([0, 1], list(labels), fontsize=9)
+    ax.set_xlabel("Predicho", fontsize=10)
+    ax.set_ylabel("Real", fontsize=10)
+    ax.set_title("\n".join(textwrap.wrap(title, 40)), fontsize=10)
     for i in range(2):
         for j in range(2):
             ax.text(j, i, str(cm[i, j]), ha="center", va="center",

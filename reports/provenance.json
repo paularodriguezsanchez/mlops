@@ -1,13 +1,13 @@
 {
   "captured_at_utc": "2026-08-18T15:51:20.136688+00:00",
-  "code_version": "Commit unico de este repositorio (ver `git log`).",
-  "note": "Registro de la ejecucion canonica del pipeline que sostiene las cifras de la memoria. La ejecucion se identifica por los run_id de MLflow y por el hash DVC de los datos crudos; son esos identificadores, y no la fecha, los que permiten reproducir el resultado exacto. capture_provenance captura los runs mas recientes del servidor de seguimiento, por lo que cualquier ejecucion posterior lo sobrescribe: este fichero fija la ejecucion canonica de forma explicita.",
+  "git_sha": "04834a9efe76350368863c620f465647d5873361",
+  "git_sha_note": "SHA del commit de este repositorio que contiene el codigo con el que se ejecuto el pipeline canonico. La ejecucion es anterior a la publicacion del repositorio, de ahi que la fecha de captura no coincida con la del commit.",
   "dvc_raw_hash": {
     "md5": "6fb5900e437aac83be4088ab4d4dc760.dir",
     "size": 442127820,
     "nfiles": 4
   },
-  "mlflow_runs": {
+  "mlflow_latest_runs": {
     "variant_pathogenicity": {
       "run_id": "12dd517e3ae14e9bb51f82e11941fc87",
       "start_time_ms": 1787067945046
@@ -24,5 +24,6 @@
   "raw_data": {
     "raw_generated_utc": "2026-08-12T16:21:04.039708+00:00",
     "source": "ncbi_clinvar"
-  }
+  },
+  "note": "Registro de la ejecucion canonica del pipeline que sostiene las cifras de la memoria. La ejecucion se identifica por los run_id de MLflow y por el hash DVC de los datos crudos; son esos identificadores, y no la fecha, los que permiten reproducir el resultado exacto. capture_provenance sobrescribe este fichero con los runs mas recientes del backend de seguimiento local, asi que una ejecucion posterior -incluida la suite de pruebas- lo reemplaza: esta version fija la ejecucion canonica de forma explicita."
 }
