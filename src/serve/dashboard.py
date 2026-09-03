@@ -18,6 +18,14 @@ dashboard_bp = Blueprint("dashboard", __name__)
 
 _ALLOWED_SPLITS = {"train", "test"}
 
+# Criterio de orden declarado en la cabecera. Sin informe generado no se emite
+# ninguna de las dos: no hay registros que inspeccionar, y afirmar desde aqui que
+# el modelo de ranking no esta entrenado seria falso -puede estarlo, y de hecho la
+# otra release lo usa-.
+_ORDER_NOTE_RANKING = "Ordenadas por el score del modelo de ranking."
+_ORDER_NOTE_FALLBACK = ("Ordenadas por probabilidad de patogenicidad: el informe se generó "
+                        "sin modelo de ranking disponible.")
+
 _PAGE = """<!doctype html>
 <html lang="es">
 <head>
@@ -56,9 +64,7 @@ _PAGE = """<!doctype html>
 <body>
 <header>
   <h1>Priorización de VUS por IA</h1>
-  <p>{% if using_ranking %}Ordenadas por el score del modelo de ranking.
-     {% else %}Ordenadas por probabilidad de patogenicidad; el modelo de ranking
-     todavía no está entrenado.{% endif %}
+  <p>{{ order_note }}
      Apoyo a la revisión manual, no un veredicto clínico ni una clasificación ACMG certificada.</p>
 </header>
 <main>
@@ -173,5 +179,9 @@ def dashboard(split: str = "test"):
     path = PROJECT_ROOT / "reports" / "serving" / f"vus_reports_{split}.json"
     raw = json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
     records = [_view_record(r) for r in raw]
-    using_ranking = any("ranking_score" in r for r in raw)
-    return render_template_string(_PAGE, split=split, records=records, using_ranking=using_ranking)
+    if not records:
+        order_note = ""
+    else:
+        order_note = (_ORDER_NOTE_RANKING if any("ranking_score" in r for r in raw)
+                      else _ORDER_NOTE_FALLBACK)
+    return render_template_string(_PAGE, split=split, records=records, order_note=order_note)

@@ -84,13 +84,26 @@ def test_dashboard_indica_criterio_de_orden_segun_ranking_score(tmp_path, monkey
         json.dumps(sin_ranking, ensure_ascii=False), encoding="utf-8")
     client = _client(tmp_path, monkeypatch)
     html_sin = client.get("/dashboard/test").data.decode("utf-8")
-    assert "todavía no está entrenado" in html_sin
+    assert "sin modelo de ranking disponible" in html_sin
 
     con_ranking = [{**sin_ranking[0], "ranking_score": 1.23}]
     (out_dir / "vus_reports_test.json").write_text(
         json.dumps(con_ranking, ensure_ascii=False), encoding="utf-8")
     html_con = client.get("/dashboard/test").data.decode("utf-8")
     assert "score del modelo de ranking" in html_con
+
+
+def test_dashboard_sin_informe_no_afirma_nada_del_modelo_de_ranking(tmp_path, monkeypatch):
+    """Sin informe generado, la cabecera no puede pronunciarse sobre el criterio de
+    orden: no hay registros que inspeccionar. Afirmar que el modelo de ranking no
+    está entrenado seria falso -puede estarlo, y de hecho la otra release lo usa-."""
+    (tmp_path / "reports" / "serving").mkdir(parents=True)
+    client = _client(tmp_path, monkeypatch)
+    html = client.get("/dashboard/train").data.decode("utf-8")
+
+    assert "No hay informe generado todavía" in html
+    assert "modelo de ranking" not in html
+    assert "probabilidad de patogenicidad" not in html
 
 
 def test_dashboard_avisa_si_reclasificacion_no_es_fiable(tmp_path, monkeypatch):
