@@ -40,7 +40,23 @@ Todas públicas y sin registro previo, consultadas a través de `myvariant.info`
 
 ## Reproducción
 
-Python 3.12 y Docker. Las versiones exactas de todas las dependencias están fijadas en `requirements.txt`.
+Python 3.12 y Docker. `requirements.txt` fija las dependencias directas;
+`requirements.lock.txt` fija además las 198 transitivas con su huella
+criptográfica, generado con `pip-compile --generate-hashes`. Para reproducir el
+entorno exacto de la ejecución canónica:
+
+```bash
+python -m venv .venv && .venv/Scripts/activate   # o source .venv/bin/activate
+pip install --require-hashes -r requirements.lock.txt
+```
+
+En Windows hace falta además `PYTHONUTF8=1`: MLflow escribe emojis en la salida
+estándar y la consola en cp1252 aborta el entrenamiento al cerrar cada *run*.
+
+El entorno es reproducible bit a bit desde ese fichero, pero la anotación se
+consulta a una API externa mutable: el *pipeline* es reproducible **sujeto al
+estado de las fuentes externas**, no garantiza los mismos valores al cabo del
+tiempo.
 
 ```bash
 make up
