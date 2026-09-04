@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 import yaml
 
 from src.config import PROJECT_ROOT, raw_dir
+from src.evaluate.run_registry import load_runs
 
 
 def _git_sha() -> str | None:
@@ -75,7 +76,14 @@ def run() -> dict:
         "captured_at_utc": datetime.now(timezone.utc).isoformat(),  # noqa: UP017
         "git_sha": _git_sha(),
         "dvc_raw_hash": _dvc_hash(),
-        "mlflow_latest_runs": _latest_run_per_experiment(),
+        # Runs declarados por cada etapa al ejecutarse. El backend de
+        # seguimiento es mutable y compartido, asi que "el run mas reciente"
+        # no identifica la ejecucion canonica: la suite de pruebas o una
+        # reejecucion parcial lo desplazan sin dejar rastro visible.
+        "canonical_runs": load_runs(),
+        # Se conserva la vista del backend como contraste: si difiere del
+        # registro, es que hubo runs posteriores a la ejecucion canonica.
+        "mlflow_latest_runs_seen_in_backend": _latest_run_per_experiment(),
         "raw_data": _annotation_timestamps(),
     }
     out_dir = PROJECT_ROOT / "reports"

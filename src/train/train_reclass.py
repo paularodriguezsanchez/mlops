@@ -45,6 +45,7 @@ from src.evaluate.metrics import (
     precision_recall_lift_at_k,
     save_confusion_matrix,
 )
+from src.evaluate.run_registry import record_run
 from src.features.preprocess import (
     RECLASS_FEATURE_COLUMNS,
     SAFE_RECLASS_FEATURE_COLUMNS,
@@ -251,6 +252,8 @@ def run(tracking_uri: str | None = None, test_size: float = 0.25) -> dict:
                           **r["metrics"]} for r in results])
     comp.to_csv(art_dir / "reclassification_model_comparison.csv", index=False)
 
+    record_run("vus_reclassification_potential", best["run_id"],
+               algorithm=best["name"])
     _register_best(best["name"], best["run_id"])
     _write_card(best, results, train_rel, test_rel, n_pos, len(labeled), reliable, provenance,
                ablation, holdout_ci, topk, calibration, len(y_hold), n_hold_pos, roc_ci)

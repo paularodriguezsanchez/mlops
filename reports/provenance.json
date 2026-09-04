@@ -1,24 +1,31 @@
 {
-  "captured_at_utc": "2026-09-04T08:53:44.745702+00:00",
-  "git_sha": "e60725728e21c3a67c1850719d1552442355610c",
+  "captured_at_utc": "2026-09-04T09:23:48.246074+00:00",
+  "git_sha": "9d2348502e06a1a7830f150a7fd67f1b7aab1c40",
   "dvc_raw_hash": {
     "md5": "6fb5900e437aac83be4088ab4d4dc760.dir",
     "size": 442127820,
     "nfiles": 4
   },
-  "mlflow_latest_runs": {
+  "canonical_runs": {
     "variant_pathogenicity": {
-      "run_id": "0efe6d18d5884e5398ed1a1dd41b59d5",
-      "start_time_ms": 1788509750256
-    },
-    "vus_ranking": {
-      "run_id": "89c3bb4464a64c3f8824b27356859bda",
-      "start_time_ms": 1788511660001
+      "run_id": "27fd09a709964da6a74cd918c536921d",
+      "recorded_at_utc": "2026-09-04T09:16:35.041209+00:00",
+      "algorithm": "logistic_regression"
     },
     "vus_reclassification_potential": {
-      "run_id": "e4da9b46b167489b9032caacb5da9db7",
-      "start_time_ms": 1788511758000
+      "run_id": "81d35e9fc09845919c7099905219ee65",
+      "recorded_at_utc": "2026-09-04T09:18:35.849891+00:00",
+      "algorithm": "hist_gradient_boosting"
+    },
+    "vus_ranking": {
+      "run_id": "1c7eee6d187c499cad56aab4e0296806",
+      "recorded_at_utc": "2026-09-04T09:18:50.308317+00:00",
+      "algorithm": "lightgbm_lambdarank"
     }
   },
-  "raw_data": {}
+  "mlflow_latest_runs_seen_in_backend": {},
+  "raw_data": {
+    "raw_generated_utc": "2026-09-04T08:01:34.712577+00:00",
+    "source": "ncbi_clinvar"
+  }
 }

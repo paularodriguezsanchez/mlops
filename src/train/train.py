@@ -44,6 +44,7 @@ from src.evaluate.metrics import (
     compute_metrics,
     save_confusion_matrix,
 )
+from src.evaluate.run_registry import record_run
 from src.features.preprocess import FEATURE_COLUMNS, build_preprocessor
 
 _KEY = ["chrom", "pos", "ref", "alt"]
@@ -244,6 +245,7 @@ def run(tracking_uri: str | None = None) -> dict:
     calibration = calibration_report(y_test[unseen], best_prob_holdout, n_bins=10)
     pd.DataFrame(calibration["bins"]).to_csv(art_dir / "calibration_bins.csv", index=False)
     _write_model_card(best, results, cfg, imp_path, shap_path, provenance, calibration)
+    record_run("variant_pathogenicity", best["run_id"], algorithm=best["name"])
     _register_best(best["name"], best["run_id"], best["holdout"])
 
     comp = pd.DataFrame([{

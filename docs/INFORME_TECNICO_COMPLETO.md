@@ -44,7 +44,7 @@ data/                         raw (inmutable, DVC) / interim (SILVER) / processe
 src/                          config, ingest, annotate, features, train, evaluate, monitor, serve
 models/                       best_model, reclassification_model, ranking_model
 reports/                      training, monitoring, serving y provenance.json
-tests/                        96 pruebas (pytest)
+tests/                        101 pruebas (pytest)
 docker/, compose.yaml         Tres servicios: mlflow, app y serve
 Makefile                      Documentación ejecutable de cada etapa
 .github/workflows/ci.yml      Estilo, auditoría de dependencias y pruebas
@@ -318,7 +318,7 @@ La integración continua ejecuta en cada push y PR a `main`: `ruff check src tes
 
 `data/raw` se versiona con DVC, sin remoto configurado: tras clonar hay que regenerar con `make data`, que es determinista.
 
-La suite tiene **96 pruebas** agrupadas por capa —ingesta y anotación, features, los tres entrenamientos, evaluación y procedencia, monitorización, servicio— más un test de integración que ejecuta la cadena completa sobre datos aislados en `tmp_path`, sin tocar el repositorio real. `RandomForestClassifier` y `permutation_importance` usaban `n_jobs=-1`, lo que en Windows dejaba procesos de `loky` sin cerrar entre tests sucesivos hasta degradar el sistema; corregido a `n_jobs=1`, sin alterar ningún resultado citado, porque con `random_state` fijo el modelo entrenado es idéntico.
+La suite tiene **101 pruebas** agrupadas por capa —ingesta y anotación, features, los tres entrenamientos, evaluación y procedencia, monitorización, servicio— más un test de integración que ejecuta la cadena completa sobre datos aislados en `tmp_path`, sin tocar el repositorio real. `RandomForestClassifier` y `permutation_importance` usaban `n_jobs=-1`, lo que en Windows dejaba procesos de `loky` sin cerrar entre tests sucesivos hasta degradar el sistema; corregido a `n_jobs=1`, sin alterar ningún resultado citado, porque con `random_state` fijo el modelo entrenado es idéntico.
 
 ---
 

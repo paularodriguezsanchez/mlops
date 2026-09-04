@@ -24,6 +24,7 @@ from sklearn.metrics import ndcg_score
 
 from src.config import PROJECT_ROOT, get_seed, load_config, processed_dir
 from src.evaluate.metrics import compute_metrics
+from src.evaluate.run_registry import record_run
 from src.features.preprocess import FEATURE_COLUMNS, build_preprocessor
 
 _NDCG_KS = (10, 50, 100)
@@ -122,7 +123,8 @@ def run(tracking_uri: str | None = None) -> dict:
 
     mlflow.set_tracking_uri(_resolve_tracking_uri(cfg, tracking_uri))
     mlflow.set_experiment(cfg["mlflow"].get("ranking_experiment_name", "vus_ranking"))
-    with mlflow.start_run(run_name="lightgbm_lambdarank"):
+    with mlflow.start_run(run_name="lightgbm_lambdarank") as mlrun:
+        record_run("vus_ranking", mlrun.info.run_id, algorithm="lightgbm_lambdarank")
         mlflow.log_params({"algorithm": "lightgbm_lambdarank", "seed": seed,
                            "n_estimators": 200, "group_strategy": "single_global_group",
                            "clinvar_data_source": provenance["clinvar_source"],
