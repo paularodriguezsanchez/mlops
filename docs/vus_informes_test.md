@@ -2,9 +2,10 @@
 
 Generados por plantilla, no por un modelo de lenguaje libre, a partir de la
 probabilidad de patogenicidad (`src/serve/predictor.py`), la de reclasificación
-próxima (`src/train/train_reclass.py`) y la evidencia SHAP traducida a códigos
+antes de la release usada como horizonte de evaluación
+(`src/train/train_reclass.py`) y la evidencia SHAP traducida a códigos
 ACMG-símiles (`src/evaluate/acmg_evidence.py`). No es una clasificación ACMG
-certificada ni sustituye la curación clínica experta. Ordenadas por el score del modelo de ranking (LightGBM `lambdarank`), ver `src/serve/prioritize_vus.py`.
+certificada ni sustituye la curación clínica experta. Ordenadas por el score del modelo de ranking (LightGBM `lambdarank`), ver `src/serve/prioritize_vus.py`. Ese modelo se entrena sobre variantes ya resueltas con la patogenicidad binaria como relevancia, así que ordena por un **proxy de potencial patogénico**, no por probabilidad de reclasificación. Su NDCG está medido sobre variantes resueltas y no sobre esta cola de VUS: hay un cambio de dominio entre ambas poblaciones que no se ha cuantificado.
 
 6042 VUS reservadas en esta release. Informes de las 10 primeras:
 
@@ -12,7 +13,7 @@ certificada ni sustituye la curación clínica experta. Ordenadas por el score d
 
 * **Consecuencia:** SO:0001587|nonsense
 * **Probabilidad de patogenicidad:** 99.7%
-* **Probabilidad de reclasificación próxima:** 26.1%
+* **Probabilidad de reclasificación antes de la release de horizonte:** 0.1%
 * **Evidencia computacional** (heurística tipo ACMG/AMP, no una clasificación certificada):
   * **PP3-like** — CADD combinado sugiere efecto deletéreo (valor=35.0, contribución SHAP=+0.288)
   * **PVS1-like** — consecuencia de pérdida de función predicha (SO:0001587|nonsense) (valor=SO:0001587|nonsense, contribución SHAP=+0.074)
@@ -22,7 +23,7 @@ certificada ni sustituye la curación clínica experta. Ordenadas por el score d
 
 * **Consecuencia:** SO:0001587|nonsense
 * **Probabilidad de patogenicidad:** 97.2%
-* **Probabilidad de reclasificación próxima:** 0.8%
+* **Probabilidad de reclasificación antes de la release de horizonte:** 0.0%
 * **Evidencia computacional** (heurística tipo ACMG/AMP, no una clasificación certificada):
   * **PP3-like** — CADD combinado sugiere efecto deletéreo (valor=37.0, contribución SHAP=+0.371)
   * **PVS1-like** — consecuencia de pérdida de función predicha (SO:0001587|nonsense) (valor=SO:0001587|nonsense, contribución SHAP=+0.083)
@@ -31,7 +32,7 @@ certificada ni sustituye la curación clínica experta. Ordenadas por el score d
 
 * **Consecuencia:** SO:0001587|nonsense
 * **Probabilidad de patogenicidad:** 98.0%
-* **Probabilidad de reclasificación próxima:** 4.2%
+* **Probabilidad de reclasificación antes de la release de horizonte:** 0.0%
 * **Evidencia computacional** (heurística tipo ACMG/AMP, no una clasificación certificada):
   * **PP3-like** — CADD combinado sugiere efecto deletéreo (valor=37.0, contribución SHAP=+0.363)
   * **PVS1-like** — consecuencia de pérdida de función predicha (SO:0001587|nonsense) (valor=SO:0001587|nonsense, contribución SHAP=+0.081)
@@ -40,7 +41,7 @@ certificada ni sustituye la curación clínica experta. Ordenadas por el score d
 
 * **Consecuencia:** SO:0001587|nonsense
 * **Probabilidad de patogenicidad:** 100.0%
-* **Probabilidad de reclasificación próxima:** 4.8%
+* **Probabilidad de reclasificación antes de la release de horizonte:** 0.1%
 * **Evidencia computacional** (heurística tipo ACMG/AMP, no una clasificación certificada):
   * **PP3-like** — CADD combinado sugiere efecto deletéreo (valor=38.0, contribución SHAP=+0.288)
   * **PVS1-like** — consecuencia de pérdida de función predicha (SO:0001587|nonsense) (valor=SO:0001587|nonsense, contribución SHAP=+0.065)
@@ -49,7 +50,7 @@ certificada ni sustituye la curación clínica experta. Ordenadas por el score d
 
 * **Consecuencia:** SO:0001587|nonsense
 * **Probabilidad de patogenicidad:** 99.3%
-* **Probabilidad de reclasificación próxima:** 0.7%
+* **Probabilidad de reclasificación antes de la release de horizonte:** 0.0%
 * **Evidencia computacional** (heurística tipo ACMG/AMP, no una clasificación certificada):
   * **PP3-like** — CADD combinado sugiere efecto deletéreo (valor=36.0, contribución SHAP=+0.329)
   * **PVS1-like** — consecuencia de pérdida de función predicha (SO:0001587|nonsense) (valor=SO:0001587|nonsense, contribución SHAP=+0.078)
@@ -58,7 +59,7 @@ certificada ni sustituye la curación clínica experta. Ordenadas por el score d
 
 * **Consecuencia:** SO:0001587|nonsense
 * **Probabilidad de patogenicidad:** 99.9%
-* **Probabilidad de reclasificación próxima:** 4.5%
+* **Probabilidad de reclasificación antes de la release de horizonte:** 0.3%
 * **Evidencia computacional** (heurística tipo ACMG/AMP, no una clasificación certificada):
   * **PP3-like** — CADD combinado sugiere efecto deletéreo (valor=38.0, contribución SHAP=+0.309)
   * **PP3-like** — posición evolutivamente muy conservada (phyloP) (valor=5.825, contribución SHAP=+0.122)
@@ -68,7 +69,7 @@ certificada ni sustituye la curación clínica experta. Ordenadas por el score d
 
 * **Consecuencia:** SO:0001587|nonsense
 * **Probabilidad de patogenicidad:** 99.9%
-* **Probabilidad de reclasificación próxima:** 3.4%
+* **Probabilidad de reclasificación antes de la release de horizonte:** 0.1%
 * **Evidencia computacional** (heurística tipo ACMG/AMP, no una clasificación certificada):
   * **PP3-like** — CADD combinado sugiere efecto deletéreo (valor=36.0, contribución SHAP=+0.273)
   * **PVS1-like** — consecuencia de pérdida de función predicha (SO:0001587|nonsense) (valor=SO:0001587|nonsense, contribución SHAP=+0.068)
@@ -77,7 +78,7 @@ certificada ni sustituye la curación clínica experta. Ordenadas por el score d
 
 * **Consecuencia:** SO:0001587|nonsense
 * **Probabilidad de patogenicidad:** 100.0%
-* **Probabilidad de reclasificación próxima:** 4.4%
+* **Probabilidad de reclasificación antes de la release de horizonte:** 0.1%
 * **Evidencia computacional** (heurística tipo ACMG/AMP, no una clasificación certificada):
   * **PP3-like** — CADD combinado sugiere efecto deletéreo (valor=41.0, contribución SHAP=+0.317)
   * **PVS1-like** — consecuencia de pérdida de función predicha (SO:0001587|nonsense) (valor=SO:0001587|nonsense, contribución SHAP=+0.062)
@@ -86,7 +87,7 @@ certificada ni sustituye la curación clínica experta. Ordenadas por el score d
 
 * **Consecuencia:** SO:0001587|nonsense
 * **Probabilidad de patogenicidad:** 98.4%
-* **Probabilidad de reclasificación próxima:** 3.1%
+* **Probabilidad de reclasificación antes de la release de horizonte:** 0.0%
 * **Evidencia computacional** (heurística tipo ACMG/AMP, no una clasificación certificada):
   * **PP3-like** — CADD combinado sugiere efecto deletéreo (valor=37.0, contribución SHAP=+0.362)
   * **PP3-like** — posición evolutivamente muy conservada (GERP++) (valor=4.2, contribución SHAP=+0.156)
@@ -96,7 +97,7 @@ certificada ni sustituye la curación clínica experta. Ordenadas por el score d
 
 * **Consecuencia:** SO:0001587|nonsense
 * **Probabilidad de patogenicidad:** 99.9%
-* **Probabilidad de reclasificación próxima:** 5.0%
+* **Probabilidad de reclasificación antes de la release de horizonte:** 0.3%
 * **Evidencia computacional** (heurística tipo ACMG/AMP, no una clasificación certificada):
   * **PP3-like** — CADD combinado sugiere efecto deletéreo (valor=42.0, contribución SHAP=+0.355)
   * **PP3-like** — posición evolutivamente muy conservada (GERP++) (valor=4.28, contribución SHAP=+0.124)

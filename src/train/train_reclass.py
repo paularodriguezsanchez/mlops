@@ -240,7 +240,15 @@ def run(tracking_uri: str | None = None, test_size: float = 0.25) -> dict:
         **provenance,
     }, indent=2), encoding="utf-8")
 
-    comp = pd.DataFrame([{"name": r["name"], **r["metrics"]} for r in results])
+    # El CSV lleva primero el criterio de seleccion (CV sobre el conjunto de
+    # entrenamiento) y despues las metricas de holdout, que son descriptivas: sin
+    # las columnas de CV el artefacto no permitiria auditar por que gano un
+    # algoritmo y no otro.
+    comp = pd.DataFrame([{"name": r["name"],
+                          "cv_pr_auc_mean": r["cv_pr_auc_mean"],
+                          "cv_pr_auc_std": r["cv_pr_auc_std"],
+                          "selected": r["name"] == best["name"],
+                          **r["metrics"]} for r in results])
     comp.to_csv(art_dir / "reclassification_model_comparison.csv", index=False)
 
     _register_best(best["name"], best["run_id"])
@@ -566,9 +574,12 @@ def run_prospective(prospective_release: str | None = None) -> dict:
         result["safe_ablation"] = {**compute_metrics(y_c, prob_safe),
                                    "algorithm": algorithm,
                                    "features": SAFE_RECLASS_FEATURE_COLUMNS}
-        note = ("Validación prospectiva real: ROC AUC/PR AUC de un modelo ya "
+        note = ("Validación temporal externa: ROC AUC/PR AUC de un modelo ya "
                 f"entrenado en {train_rel}->{test_rel}, aplicado sin reentrenar "
-                f"sobre verdad terreno de {c_rel}, publicada después.")
+                f"sobre verdad terreno de {c_rel}, publicada después y no usada "
+                "para entrenar ni para seleccionar. No es prospectiva en sentido "
+                "estricto: las features de anotación se consultan al ejecutar, sin "
+                "anclaje a la fecha de cada release.")
     else:
         result["full_model"] = None
         result["safe_ablation"] = None
@@ -605,7 +616,8 @@ def _write_prospective_card(result: dict) -> None:
 
 A diferencia del resto de cifras del modelo, estas proceden de una verdad terreno
 publicada después de fijar el par de entrenamiento y nunca usada para entrenar ni
-seleccionar: es la única evaluación del proyecto que mide capacidad prospectiva.
+seleccionar: es la evaluación del proyecto más cercana a medir capacidad
+prospectiva, con la salvedad de las features no ancladas.
 
 Con {result['n_resolved_by_c']} casos positivos -una ventana más corta que la
 retrospectiva, con menos tiempo para acumular reclasificaciones- la estimación es muy
@@ -614,7 +626,7 @@ redondear al alza ni ocultar el tamaño muestral, porque es la evidencia disponi
 """
     else:
         body = f"**{result['note']}**\n"
-    card.write_text(f"""# Validación temporal prospectiva del modelo de reclasificación
+    card.write_text(f"""# Validación temporal externa del modelo de reclasificación
 
 ## Diseño
 * Entrenamiento, sin cambios: VUS de {result['train_release_a']}, etiquetadas según se
@@ -626,12 +638,16 @@ redondear al alza ni ocultar el tamaño muestral, porque es la evidencia disponi
   {result['share_resolved_by_c']}).
 * {result['prospective_release_c']} se publicó después de fijar el par de entrenamiento y
   no intervino en la selección de algoritmo ni en ningún hiperparámetro.
+* No es una validación prospectiva en sentido estricto: las features de anotación
+  se consultan a myvariant.info al ejecutar el pipeline, sin anclaje a la fecha de
+  cada release, de modo que el estado de las fuentes externas no quedó congelado
+  antes de que existiera {result['prospective_release_c']}.
 
 {body}
 
 ## Cómo citar
-Es la única cifra del modelo que responde a si predice una reclasificación genuinamente
-futura. El resto de métricas (holdout aleatorio dentro del par de entrenamiento) miden
+Es la única cifra del modelo que se enfrenta a una verdad terreno posterior al par de
+entrenamiento. El resto de métricas (holdout aleatorio dentro del par de entrenamiento) miden
 señal retrospectiva y no deben presentarse como equivalentes.
 """, encoding="utf-8")
     print(f"Model Card (validación prospectiva) -> {card}")
@@ -640,7 +656,7 @@ señal retrospectiva y no deben presentarse como equivalentes.
 def _parse_args(argv=None):
     p = argparse.ArgumentParser(description="Modelo de potencial de reclasificación de VUS.")
     p.add_argument("--prospective", action="store_true",
-                   help="Ejecuta la validación temporal prospectiva real (requiere "
+                   help="Ejecuta la validación temporal externa (requiere "
                         "haber entrenado antes y descargado la release prospectiva).")
     return p.parse_args(argv)
 

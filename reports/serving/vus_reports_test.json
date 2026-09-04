@@ -7,7 +7,7 @@
     "gene": "ARL6IP6",
     "consequence": "SO:0001587|nonsense",
     "probabilidad_patogenica": 0.9966312077256613,
-    "probabilidad_reclasificacion": 0.260698302103921,
+    "probabilidad_reclasificacion": 0.0006084826917726105,
     "probabilidad_reclasificacion_fiable": true,
     "evidencia": [
       {
@@ -45,7 +45,7 @@
     "gene": "GCKR",
     "consequence": "SO:0001587|nonsense",
     "probabilidad_patogenica": 0.9719162259517312,
-    "probabilidad_reclasificacion": 0.008043196538212017,
+    "probabilidad_reclasificacion": 3.7168014197777337e-06,
     "probabilidad_reclasificacion_fiable": true,
     "evidencia": [
       {
@@ -75,7 +75,7 @@
     "gene": "IFIH1",
     "consequence": "SO:0001587|nonsense",
     "probabilidad_patogenica": 0.980110202237984,
-    "probabilidad_reclasificacion": 0.04202229509596801,
+    "probabilidad_reclasificacion": 3.098563023127534e-05,
     "probabilidad_reclasificacion_fiable": true,
     "evidencia": [
       {
@@ -105,7 +105,7 @@
     "gene": "ALK",
     "consequence": "SO:0001587|nonsense",
     "probabilidad_patogenica": 0.9995662266566004,
-    "probabilidad_reclasificacion": 0.04752303918723726,
+    "probabilidad_reclasificacion": 0.0010288744029536934,
     "probabilidad_reclasificacion_fiable": true,
     "evidencia": [
       {
@@ -135,7 +135,7 @@
     "gene": "GNB4",
     "consequence": "SO:0001587|nonsense",
     "probabilidad_patogenica": 0.9926873217708354,
-    "probabilidad_reclasificacion": 0.007424457212149891,
+    "probabilidad_reclasificacion": 2.1366979398072996e-05,
     "probabilidad_reclasificacion_fiable": true,
     "evidencia": [
       {
@@ -165,7 +165,7 @@
     "gene": "TIA1",
     "consequence": "SO:0001587|nonsense",
     "probabilidad_patogenica": 0.999139387365235,
-    "probabilidad_reclasificacion": 0.045187904819923345,
+    "probabilidad_reclasificacion": 0.0026900529584118057,
     "probabilidad_reclasificacion_fiable": true,
     "evidencia": [
       {
@@ -203,7 +203,7 @@
     "gene": "TIMMDC1",
     "consequence": "SO:0001587|nonsense",
     "probabilidad_patogenica": 0.9992922733790699,
-    "probabilidad_reclasificacion": 0.03409318776461533,
+    "probabilidad_reclasificacion": 0.0010288744029536934,
     "probabilidad_reclasificacion_fiable": true,
     "evidencia": [
       {
@@ -233,7 +233,7 @@
     "gene": "METTL5",
     "consequence": "SO:0001587|nonsense",
     "probabilidad_patogenica": 0.9997134976907267,
-    "probabilidad_reclasificacion": 0.04431382084853855,
+    "probabilidad_reclasificacion": 0.0010288744029536934,
     "probabilidad_reclasificacion_fiable": true,
     "evidencia": [
       {
@@ -263,7 +263,7 @@
     "gene": "ELMOD3",
     "consequence": "SO:0001587|nonsense",
     "probabilidad_patogenica": 0.9843709584763224,
-    "probabilidad_reclasificacion": 0.030895223437500223,
+    "probabilidad_reclasificacion": 0.0002856001973560117,
     "probabilidad_reclasificacion_fiable": true,
     "evidencia": [
       {
@@ -301,7 +301,7 @@
     "gene": "IGFN1",
     "consequence": "SO:0001587|nonsense",
     "probabilidad_patogenica": 0.9994504877020756,
-    "probabilidad_reclasificacion": 0.04964784772357103,
+    "probabilidad_reclasificacion": 0.0026900529584118057,
     "probabilidad_reclasificacion_fiable": true,
     "evidencia": [
       {
