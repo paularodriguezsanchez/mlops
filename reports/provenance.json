@@ -1,6 +1,6 @@
 {
-  "captured_at_utc": "2026-09-04T08:38:52.560493+00:00",
-  "git_sha": "9d2348502e06a1a7830f150a7fd67f1b7aab1c40",
+  "captured_at_utc": "2026-09-04T08:53:44.745702+00:00",
+  "git_sha": "e60725728e21c3a67c1850719d1552442355610c",
   "dvc_raw_hash": {
     "md5": "6fb5900e437aac83be4088ab4d4dc760.dir",
     "size": 442127820,
@@ -12,16 +12,13 @@
       "start_time_ms": 1788509750256
     },
     "vus_ranking": {
-      "run_id": "2ccc1f194d4e4c93a8bf611f2af20a57",
-      "start_time_ms": 1788510766486
+      "run_id": "89c3bb4464a64c3f8824b27356859bda",
+      "start_time_ms": 1788511660001
     },
     "vus_reclassification_potential": {
-      "run_id": "91f7a3094be540089944301bcb35c5c6",
-      "start_time_ms": 1788510741914
+      "run_id": "e4da9b46b167489b9032caacb5da9db7",
+      "start_time_ms": 1788511758000
     }
   },
-  "raw_data": {
-    "raw_generated_utc": "2026-09-04T08:01:34.712577+00:00",
-    "source": "ncbi_clinvar"
-  }
+  "raw_data": {}
 }
