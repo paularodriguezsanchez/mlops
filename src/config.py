@@ -80,3 +80,37 @@ def clinvar_prospective_release() -> str | None:
 def annotation_source() -> str:
     """Fuente de features de anotación: 'synthetic' (ADR 005) o 'multi_source' (ADR 007/B5)."""
     return str(load_config()["data"].get("annotation_source", "synthetic"))
+
+
+# -- Umbrales de monitorización y entrenamiento -------------------------------
+# Se resuelven contra config.yaml en cada llamada, igual que las rutas: ningún
+# umbral que gobierne una decisión del sistema vive como literal en el código.
+
+def psi_threshold() -> float:
+    """PSI a partir del cual una característica se marca con drift."""
+    return float(load_config()["monitor"].get("psi_threshold", 0.2))
+
+
+def ks_alpha() -> float:
+    """Nivel de significación del contraste de Kolmogorov-Smirnov."""
+    return float(load_config()["monitor"].get("ks_alpha", 0.05))
+
+
+def reclassified_threshold() -> float:
+    """Proporción de VUS reclasificadas que dispara la alerta de deriva."""
+    return float(load_config()["monitor"].get("reclassified_threshold", 0.02))
+
+
+def reclass_cv_splits() -> int:
+    """Pliegues de la validación cruzada de selección del modelo de reclasificación."""
+    return int(load_config().get("train", {}).get("reclass_cv_splits", 5))
+
+
+def reclass_cv_repeats() -> int:
+    """Repeticiones de esa validación cruzada."""
+    return int(load_config().get("train", {}).get("reclass_cv_repeats", 5))
+
+
+def reclass_reliable_roc_auc() -> float:
+    """ROC AUC mínimo para presentar la probabilidad de reclasificación sin aviso."""
+    return float(load_config().get("train", {}).get("reclass_reliable_roc_auc", 0.6))

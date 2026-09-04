@@ -5,7 +5,9 @@ services:
       dockerfile: docker/mlflow.Dockerfile
     container_name: tfm_mlflow
     ports:
-      - "5000:5000"
+      # Solo loopback: el servidor de seguimiento no tiene autenticacion,
+      # asi que no debe quedar expuesto a la red local.
+      - "127.0.0.1:5000:5000"
     volumes:
       - mlflow_data:/mlflow
     restart: unless-stopped
@@ -38,7 +40,9 @@ services:
       - ./:/app
     working_dir: /app
     ports:
-      - "8000:8000"
+      # Solo loopback. Para exponerlo fuera del host hay que definir
+      # TFM_API_KEY y publicar el puerto de forma explicita.
+      - "127.0.0.1:8000:8000"
     # Servicio REST de inferencia. Requiere un modelo ya entrenado
     # (models/best_model, ver `make train`) montado desde el host.
     command: ["gunicorn", "--bind", "0.0.0.0:8000", "src.serve.app:app"]

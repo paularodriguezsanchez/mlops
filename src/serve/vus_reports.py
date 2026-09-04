@@ -4,8 +4,9 @@ Por plantilla y no por generación libre de un modelo de lenguaje: en un informe
 puede influir en qué VUS revisa antes un clínico, un texto inventado es un riesgo
 real que una plantilla con datos verificables no tiene.
 
-Cada informe cita la probabilidad de patogenicidad, la de reclasificación próxima
-si ese modelo está disponible, y la evidencia SHAP traducida a códigos ACMG-símiles.
+Cada informe cita la probabilidad de patogenicidad, la de reclasificación antes de la
+release usada como horizonte si ese modelo está disponible, y la evidencia SHAP
+traducida a códigos ACMG-símiles.
 
     python -m src.serve.vus_reports [--split train] [--top-n 15]
 """
@@ -56,16 +57,19 @@ def _render_variant(row: pd.Series, evidence: list[dict], reclass_prob: float | 
         for e in evidence[:5]
     ) or "  * Sin evidencia computacional destacable por encima de los umbrales."
 
+    # "Próxima" no definía ningún horizonte: la etiqueta de entrenamiento es
+    # "resuelta antes de la release usada como horizonte", y así se nombra.
+    etiqueta = "Probabilidad de reclasificación antes de la release de horizonte"
     if reclass_prob is None:
         reclass_line = (
-            "* Probabilidad de reclasificación próxima: no disponible "
+            f"* {etiqueta}: no disponible "
             "(ejecutar `python -m src.train.train_reclass`).\n"
         )
     elif reclass_reliable:
-        reclass_line = f"* **Probabilidad de reclasificación próxima:** {reclass_prob:.1%}\n"
+        reclass_line = f"* **{etiqueta}:** {reclass_prob:.1%}\n"
     else:
         reclass_line = (
-            f"* **Probabilidad de reclasificación próxima:** {reclass_prob:.1%} "
+            f"* **{etiqueta}:** {reclass_prob:.1%} "
             "(AVISO: modelo con señal predictiva no confirmada — ROC AUC cercano al azar, "
             "ver `docs/MODEL_CARD_RECLASSIFICATION.md`; no tratar como resultado validado)\n"
         )
@@ -144,7 +148,11 @@ def _write_doc(
 ) -> Path:
     orden_nota = (
         "Ordenadas por el score del modelo de ranking (LightGBM `lambdarank`), ver "
-        "`src/serve/prioritize_vus.py`."
+        "`src/serve/prioritize_vus.py`. Ese modelo se entrena sobre variantes ya "
+        "resueltas con la patogenicidad binaria como relevancia, así que ordena por un "
+        "**proxy de potencial patogénico**, no por probabilidad de reclasificación. Su "
+        "NDCG está medido sobre variantes resueltas y no sobre esta cola de VUS: hay un "
+        "cambio de dominio entre ambas poblaciones que no se ha cuantificado."
         if using_ranking else
         "Ordenadas por probabilidad de patogenicidad: el modelo de ranking no está "
         "entrenado todavía (`make train-ranking`)."
@@ -155,7 +163,8 @@ def _write_doc(
 
 Generados por plantilla, no por un modelo de lenguaje libre, a partir de la
 probabilidad de patogenicidad (`src/serve/predictor.py`), la de reclasificación
-próxima (`src/train/train_reclass.py`) y la evidencia SHAP traducida a códigos
+antes de la release usada como horizonte de evaluación
+(`src/train/train_reclass.py`) y la evidencia SHAP traducida a códigos
 ACMG-símiles (`src/evaluate/acmg_evidence.py`). No es una clasificación ACMG
 certificada ni sustituye la curación clínica experta. {orden_nota}
 

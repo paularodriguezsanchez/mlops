@@ -42,9 +42,10 @@ sources:
     academic_note: "dbNSFP exige registro académico; sustituido por myvariant.info."
     version: "4.9a"
 
-# Generador determinista para pruebas y CI (ADR 005).
+# Generador determinista para pruebas y CI (ADR 005). Nunca se activa solo: hay
+# que pedirlo de forma explícita con `annotation_source: synthetic` o con la
+# bandera correspondiente del comando de ingesta.
 synthetic:
-  enabled_when_offline: true
   seed: 42
   n_variants_train: 6000
   n_new_in_test: 1200
@@ -71,3 +72,21 @@ mlflow:
 
 monitor:
   drift_threshold: 0.15 # proporción de columnas con drift que dispara la alerta
+  # Umbrales del motor estadístico: una característica se marca con drift si el
+  # PSI supera `psi_threshold` o si el contraste KS rechaza a nivel `ks_alpha`.
+  psi_threshold: 0.2
+  ks_alpha: 0.05
+  # Proporción de VUS compartidas que pasan a resueltas a partir de la cual la
+  # deriva de reclasificación dispara alerta.
+  reclassified_threshold: 0.02
+
+train:
+  # Modelo de reclasificación: la selección de algoritmo usa validación cruzada
+  # repetida y estratificada SOLO sobre el conjunto de entrenamiento. Con una
+  # clase positiva tan minoritaria, una única partición de 5 pliegues es
+  # demasiado inestable para decidir con ella.
+  reclass_cv_splits: 5
+  reclass_cv_repeats: 5
+  # ROC AUC mínimo exigido antes de presentar la probabilidad de reclasificación
+  # como señal utilizable. Convención operativa, sin base estadística formal.
+  reclass_reliable_roc_auc: 0.6

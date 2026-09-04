@@ -22,7 +22,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from src.config import PROJECT_ROOT, get_seed, interim_dir, load_config
+from src.config import (
+    PROJECT_ROOT,
+    get_seed,
+    interim_dir,
+    load_config,
+    reclassified_threshold,
+)
 from src.features.preprocess import (
     CATEGORICAL_FEATURES,
     DENSE_NUMERIC,
@@ -81,9 +87,10 @@ def _reclassification_drift(ref: pd.DataFrame, cur: pd.DataFrame) -> dict:
     # La alerta exige una proporción de reclasificadas por encima del umbral, no
     # "cualquier" reclasificación, que resultaba demasiado laxo.
     share = len(reclass) / len(m) if len(m) else 0.0
+    umbral = reclassified_threshold()
     out["share_reclassified"] = round(share, 4)
-    out["reclassified_threshold"] = 0.02
-    out["alert"] = bool(share >= 0.02)
+    out["reclassified_threshold"] = umbral
+    out["alert"] = bool(share >= umbral)
     return out
 
 

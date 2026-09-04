@@ -18,10 +18,23 @@ import json
 import mlflow
 import mlflow.sklearn
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import (
+    RepeatedStratifiedKFold,
+    cross_val_score,
+    train_test_split,
+)
 from sklearn.pipeline import Pipeline
 
-from src.config import PROJECT_ROOT, get_seed, interim_dir, load_config, processed_dir
+from src.config import (
+    PROJECT_ROOT,
+    get_seed,
+    interim_dir,
+    load_config,
+    processed_dir,
+    reclass_cv_repeats,
+    reclass_cv_splits,
+    reclass_reliable_roc_auc,
+)
 from src.evaluate.metrics import (
     bootstrap_pr_auc_ci,
     bootstrap_roc_auc_ci,
@@ -43,9 +56,14 @@ from src.train.train import _models, _resolve_tracking_uri, data_provenance
 
 _KEY = ["chrom", "pos", "ref", "alt"]
 
-# Umbral operativo interno (0.5 = azar): por debajo, dashboard e informes leen
+# Umbral operativo (0.5 = azar): por debajo, dashboard e informes leen
 # `metrics.json` y avisan de señal débil en vez de mostrar la probabilidad sin más.
-RELIABLE_ROC_AUC_THRESHOLD = 0.6
+# Vive en config.yaml (`train.reclass_reliable_roc_auc`), igual que el resto de
+# umbrales que gobiernan una decisión del sistema; este alias lo resuelve una vez
+# al importar para no repetir la llamada en los cinco puntos que lo usan.
+RELIABLE_ROC_AUC_THRESHOLD = reclass_reliable_roc_auc()
+CV_SPLITS = reclass_cv_splits()
+CV_REPEATS = reclass_cv_repeats()
 
 
 def build_reclass_dataset(test_release: str) -> pd.DataFrame:
@@ -126,18 +144,33 @@ def run(tracking_uri: str | None = None, test_size: float = 0.25) -> dict:
     mlflow.set_experiment(cfg["mlflow"]["reclass_experiment_name"])
 
     art_dir = PROJECT_ROOT / "reports" / "training"
+    # Selección y evaluación sobre conjuntos distintos. `X_hold` es el holdout
+    # externo y no interviene en la elección del algoritmo: cada candidato se
+    # puntúa por PR AUC medio en validación cruzada repetida y estratificada
+    # DENTRO de `X_train`. Con tan pocos positivos una única partición de 5
+    # pliegues es muy inestable, de ahí las repeticiones.
+    cv = RepeatedStratifiedKFold(n_splits=CV_SPLITS, n_repeats=CV_REPEATS,
+                                 random_state=seed)
     results: list[dict] = []
     for name, clf in _models(seed).items():
         with mlflow.start_run(run_name=f"reclass_{name}") as mlrun:
             pipe = Pipeline([("pre", build_reclass_preprocessor()), ("clf", clf)])
+            cv_scores = cross_val_score(pipe, X_train, y_train, cv=cv,
+                                        scoring="average_precision", n_jobs=1)
+            cv_mean, cv_std = float(cv_scores.mean()), float(cv_scores.std())
+            # El ajuste sobre X_train y las métricas de holdout se registran para
+            # todos los candidatos por transparencia, pero son descriptivas: la
+            # decisión ya está tomada con `cv_mean`.
             pipe.fit(X_train, y_train)
             y_prob = pipe.predict_proba(X_hold)[:, 1]
             metrics = compute_metrics(y_hold, y_prob)
             mlflow.log_params({"algorithm": name, "seed": seed, "task": "reclassification",
+                               "cv_splits": CV_SPLITS, "cv_repeats": CV_REPEATS,
+                               "selection_criterion": "cv_pr_auc_mean_on_outer_train",
                                "clinvar_data_source": provenance["clinvar_source"],
                                "annotation_source": provenance["annotation_source"]})
             mlflow.set_tag("real_data_end_to_end", provenance["is_real_data"])
-            mlflow.log_metrics(metrics)
+            mlflow.log_metrics({**metrics, "cv_pr_auc_mean": cv_mean, "cv_pr_auc_std": cv_std})
             cm_path = save_confusion_matrix(
                 y_hold, y_prob, art_dir / f"cm_reclass_{name}.png",
                 title=f"CM · reclasificación · {name}",
@@ -146,13 +179,16 @@ def run(tracking_uri: str | None = None, test_size: float = 0.25) -> dict:
             mlflow.sklearn.log_model(
                 pipe, name="model",
                 serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE)
-            results.append({"name": name, "run_id": mlrun.info.run_id,
-                            "pipe": pipe, "metrics": metrics})
-            print(f"[reclass_{name}] PR AUC={metrics['pr_auc']:.4f} F1={metrics['f1']:.4f}")
+            results.append({"name": name, "run_id": mlrun.info.run_id, "pipe": pipe,
+                            "metrics": metrics,
+                            "cv_pr_auc_mean": cv_mean, "cv_pr_auc_std": cv_std})
+            print(f"[reclass_{name}] CV PR AUC={cv_mean:.4f}±{cv_std:.4f} "
+                  f"| holdout PR AUC={metrics['pr_auc']:.4f} (descriptivo)")
 
-    best = max(results, key=lambda r: r["metrics"]["pr_auc"])
-    print(f"\n>> Mejor modelo de reclasificación: {best['name']} "
-          f"(PR AUC={best['metrics']['pr_auc']:.4f})")
+    best = max(results, key=lambda r: r["cv_pr_auc_mean"])
+    print(f"\n>> Mejor modelo de reclasificación por CV sobre el conjunto de "
+          f"entrenamiento: {best['name']} "
+          f"(CV PR AUC={best['cv_pr_auc_mean']:.4f}±{best['cv_pr_auc_std']:.4f})")
 
     # Con la clase positiva tan minoritaria, el estimador puntual no basta: se
     # añaden IC bootstrap, curvas completas, calibración y métricas de cola
@@ -360,7 +396,11 @@ def _write_card(best: dict, results: list, train_rel: str, test_rel: str,
 ## Modelo
 * **Tarea:** dada una VUS de la release {train_rel}, predecir si estará resuelta
   (patogénica o benigna) en la release {test_rel}.
-* **Algoritmo:** {best['name']}, por PR AUC en holdout aleatorio estratificado.
+* **Algoritmo:** {best['name']}, elegido por PR AUC medio en validación cruzada
+  repetida ({CV_SPLITS} pliegues x {CV_REPEATS} repeticiones, estratificada)
+  **sobre el conjunto de entrenamiento**. El holdout no interviene en esa
+  decisión: se evalúa una sola vez, con el algoritmo ya elegido. Las columnas de
+  holdout del resto de candidatos son descriptivas, no criterio de selección.
 * **Población:** {n_total} VUS de {train_rel}, de las que {n_pos}
   ({100 * n_pos / n_total:.1f} %) se reclasificaron en {test_rel}.
 
@@ -370,8 +410,9 @@ def _write_card(best: dict, results: list, train_rel: str, test_rel: str,
 ## Alcance de esta evaluación
 El holdout es aleatorio estratificado dentro del par {train_rel}/{test_rel}: mide señal
 discriminativa retrospectiva dentro de ese intervalo, no capacidad prospectiva. La
-validación prospectiva real -mismo modelo, sin reentrenar, sobre una release publicada
-después de fijar el par- está en `docs/MODEL_CARD_RECLASSIFICATION_PROSPECTIVE.md`
+validación temporal externa -mismo modelo, sin reentrenar, sobre una release posterior
+que no intervino en la selección ni en el ajuste- está en
+`docs/MODEL_CARD_RECLASSIFICATION_PROSPECTIVE.md`
 (`python -m src.train.train_reclass --prospective`). Es esa cifra, no esta, la que
 responde a si el modelo predice una reclasificación genuinamente futura.
 
@@ -417,10 +458,16 @@ El uso real del modelo es ordenar una cola de revisión, así que las métricas 
 |---|---|---|---|
 {topk_rows}
 
-Calibración: Brier score = {calibration['brier_score']:.4f} (más bajo, mejor; 0.25 es el
-de un clasificador que siempre predice 0.5 bajo esta prevalencia). Con {holdout_n_pos}
-positivos, una tasa observada muy distinta de la predicha en un bin poco poblado indica
-falta de datos para estimarla, no mala calibración:
+Calibración: Brier score = {calibration['brier_score']:.4f} (más bajo, mejor). El
+baseline informativo con esta prevalencia **no** es el clasificador que siempre predice
+0.5, cuyo Brier de 0.25 es trivial de batir cuando la clase positiva ronda el 1 %: es el
+que predice siempre la prevalencia observada, con Brier = p(1-p) =
+{holdout_n_pos / holdout_n * (1 - holdout_n_pos / holdout_n):.4f}. Un Brier bajo aquí
+refleja sobre todo el desbalance, no discriminación. Por eso la salida se describe como
+*score probabilístico* y no como probabilidad clínicamente calibrada: con
+{holdout_n_pos} positivos no hay datos para sostener lo segundo, y una tasa observada muy
+distinta de la predicha en un bin poco poblado indica falta de datos para estimarla, no
+mala calibración:
 
 | Rango predicho | n | Media predicha | Tasa observada |
 |---|---|---|---|
@@ -431,7 +478,8 @@ Curvas completas: `reports/training/reclass_pr_curve.csv` y `reclass_roc_curve.c
 ## Uso previsto
 Complementa la priorización por probabilidad de patogenicidad
 (`src/serve/prioritize_vus.py`): además de cuánto riesgo estimado tiene una VUS, indica
-cuál es más probable que se resuelva pronto, para decidir qué reanalizar primero cuando
+cuál es más probable que se resuelva dentro del horizonte de evaluación, para
+decidir qué reanalizar primero cuando
 llega evidencia nueva (ADR 007 §5.5).
 """, encoding="utf-8")
     print(f"Model Card (reclasificación) -> {card}")

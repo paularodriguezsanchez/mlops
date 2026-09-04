@@ -12,9 +12,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import ks_2samp
 
-# PSI: <0.1 sin cambio · 0.1 a 0.2 cambio moderado · >0.2 drift relevante.
-PSI_DRIFT = 0.2
-KS_ALPHA = 0.05
+from src.config import ks_alpha, psi_threshold
 
 
 def _psi(ref: np.ndarray, cur: np.ndarray, bins: int = 10) -> float:
@@ -42,12 +40,16 @@ def _psi_categorical(ref: pd.Series, cur: pd.Series) -> float:
 def compute_drift(reference: pd.DataFrame, current: pd.DataFrame,
                   numeric: list[str], categorical: list[str]) -> pd.DataFrame:
     """Devuelve un DataFrame por feature con estadístico, PSI y flag de drift."""
+    # Los dos umbrales se resuelven contra config.yaml en cada llamada, igual que
+    # las rutas: ningún valor que gobierne una decisión vive como literal aquí.
+    # Referencia habitual del PSI: <0.1 sin cambio, 0.1-0.2 moderado, >0.2 drift.
+    psi_max, alpha = psi_threshold(), ks_alpha()
     rows = []
     for col in numeric:
         ref, cur = reference[col].to_numpy(float), current[col].to_numpy(float)
         ks = ks_2samp(ref[~np.isnan(ref)], cur[~np.isnan(cur)])
         psi = _psi(ref, cur)
-        drift = bool(ks.pvalue < KS_ALPHA or psi > PSI_DRIFT)
+        drift = bool(ks.pvalue < alpha or psi > psi_max)
         rows.append({"feature": col, "type": "numeric",
                      "ks_stat": round(float(ks.statistic), 4),
                      "p_value": round(float(ks.pvalue), 6),
@@ -56,7 +58,7 @@ def compute_drift(reference: pd.DataFrame, current: pd.DataFrame,
         psi = _psi_categorical(reference[col], current[col])
         rows.append({"feature": col, "type": "categorical",
                      "ks_stat": None, "p_value": None,
-                     "psi": round(psi, 4), "drift": bool(psi > PSI_DRIFT)})
+                     "psi": round(psi, 4), "drift": bool(psi > psi_max)})
     return pd.DataFrame(rows)
 
 

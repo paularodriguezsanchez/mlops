@@ -63,7 +63,7 @@ _PAGE = """<!doctype html>
 </head>
 <body>
 <header>
-  <h1>Priorización de VUS por IA</h1>
+  <h1>Priorización de variantes de significado incierto</h1>
   <p>{{ order_note }}
      Apoyo a la revisión manual, no un veredicto clínico ni una clasificación ACMG certificada.</p>
 </header>
