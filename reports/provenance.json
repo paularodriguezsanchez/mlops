@@ -1,6 +1,6 @@
 {
-  "captured_at_utc": "2026-09-04T09:23:48.246074+00:00",
-  "git_sha": "9d2348502e06a1a7830f150a7fd67f1b7aab1c40",
+  "captured_at_utc": "2026-09-04T10:23:08.033923+00:00",
+  "git_sha": "71e26b713749f033cb1cee85d2f816022b26e474",
   "dvc_raw_hash": {
     "md5": "6fb5900e437aac83be4088ab4d4dc760.dir",
     "size": 442127820,
@@ -23,9 +23,19 @@
       "algorithm": "lightgbm_lambdarank"
     }
   },
-  "mlflow_latest_runs_seen_in_backend": {},
-  "raw_data": {
-    "raw_generated_utc": "2026-09-04T08:01:34.712577+00:00",
-    "source": "ncbi_clinvar"
-  }
+  "mlflow_latest_runs_seen_in_backend": {
+    "variant_pathogenicity": {
+      "run_id": "0efe6d18d5884e5398ed1a1dd41b59d5",
+      "start_time_ms": 1788509750256
+    },
+    "vus_ranking": {
+      "run_id": "391525cb3ff140599d30f667bf2ea6ba",
+      "start_time_ms": 1788514018218
+    },
+    "vus_reclassification_potential": {
+      "run_id": "6523f6a99c0844ad9f2a5e204fc6bb41",
+      "start_time_ms": 1788514145276
+    }
+  },
+  "raw_data": {}
 }

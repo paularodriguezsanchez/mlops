@@ -1,17 +1,17 @@
 {
   "variant_pathogenicity": {
-    "run_id": "541e7d75a54040e48e0c7ca92d0e5b8e",
-    "recorded_at_utc": "2026-09-04T09:32:52.948803+00:00",
-    "algorithm": "gradient_boosting"
+    "run_id": "27fd09a709964da6a74cd918c536921d",
+    "recorded_at_utc": "2026-09-04T09:16:35.041209+00:00",
+    "algorithm": "logistic_regression"
   },
   "vus_reclassification_potential": {
-    "run_id": "c831927f83a741159396e3dd306fd6df",
-    "recorded_at_utc": "2026-09-04T09:31:54.950412+00:00",
+    "run_id": "81d35e9fc09845919c7099905219ee65",
+    "recorded_at_utc": "2026-09-04T09:18:35.849891+00:00",
     "algorithm": "hist_gradient_boosting"
   },
   "vus_ranking": {
-    "run_id": "8beb0db988c64ca7a3ab956658701701",
-    "recorded_at_utc": "2026-09-04T09:32:56.461761+00:00",
+    "run_id": "1c7eee6d187c499cad56aab4e0296806",
+    "recorded_at_utc": "2026-09-04T09:18:50.308317+00:00",
     "algorithm": "lightgbm_lambdarank"
   }
 }
